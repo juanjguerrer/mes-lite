@@ -1,3 +1,9 @@
 spring:
   application:
     name: mes-lite
+  config:
+    import: "optional:file:./.env[.properties]"
+  datasource:
+    url: "${DB_URL:jdbc:postgresql://localhost:5432/mes_lite}"
+    username: "${DB_USERNAME:postgres}"
+    password: "${DB_PASSWORD}"
