@@ -5,31 +5,18 @@ import java.util.regex.Pattern;
 
 public final class CodeRules {
     private static final int MAX_CODE_LENGTH = 50;
-    private static final Pattern CODE_PATTERN = Pattern.compile("(?![-_])[A-Za-z0-9_-]+(?<![-_])");
+    private static final Pattern CODE_PATTERN = Pattern.compile("(?![-_])[A-Z0-9_-]+(?<![-_])");
 
     private CodeRules() {
         // Private constructor to prevent instantiation
-    }
-
-    public static String validateCode(String code) {
-        if (code == null || code.isEmpty()) {
-            throw new BusinessRuleException("Code cannot be null or empty");
-        }
-        if (code.length() > MAX_CODE_LENGTH) {
-            throw new BusinessRuleException("Code cannot exceed " + MAX_CODE_LENGTH + " characters");
-        }
-        if (!CODE_PATTERN.matcher(code).matches()) {
-            throw new BusinessRuleException("Code must consist of alphanumeric characters, hyphens, or underscores, and cannot start or end with a hyphen or underscore");
-        }
-        return code;
     }
 
     public static String normalizeCode(String code) {
         if (code == null) {
             throw new BusinessRuleException("Code cannot be null");
         }
-        if (code.isEmpty()) {
-            throw new BusinessRuleException("Code cannot be empty after normalization");
+        if (code.isBlank()) {
+            throw new BusinessRuleException("Code cannot be blank");
         }
         String formattedCode = code.trim().toUpperCase(Locale.ROOT);
         if (formattedCode.length() > MAX_CODE_LENGTH) {
