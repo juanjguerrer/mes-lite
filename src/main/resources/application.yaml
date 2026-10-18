@@ -4,6 +4,7 @@ spring:
   config:
     import: "optional:file:./.env[.properties]"
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
   datasource:
