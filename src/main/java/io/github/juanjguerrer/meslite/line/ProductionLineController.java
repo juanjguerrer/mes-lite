@@ -14,10 +14,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import io.github.juanjguerrer.meslite.common.LogicalOperator;
 import io.github.juanjguerrer.meslite.line.dto.CreateLineRequest;
 import io.github.juanjguerrer.meslite.line.dto.LineResponse;
 import io.github.juanjguerrer.meslite.line.dto.UpdateLineRequest;
@@ -48,8 +50,13 @@ public class ProductionLineController {
     }
 
     @GetMapping
-    public Page<LineResponse> list(@ParameterObject Pageable pageable) {
-        return service.list(pageable);
+    public Page<LineResponse> list(
+        @RequestParam(defaultValue = "AND") LogicalOperator operator,
+        @RequestParam(required = false) String code,
+        @RequestParam(required = false) String name,
+        @ParameterObject Pageable pageable
+    ) {
+        return service.list(pageable, code, name, operator);
     }
 
     @PutMapping("/{id}")

@@ -6,5 +6,5 @@ import jakarta.validation.constraints.Size;
 public record CreateLineRequest(
     @NotBlank @Size(max = 255) String name,
     @NotBlank String code,
-    String description
+    @Size(max = 20000) String description
 ) { }
