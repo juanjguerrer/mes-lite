@@ -146,6 +146,15 @@ class ProductionLineControllerTest {
     }
 
     @Test
+    void unexpectedErrorReturns500WithoutInternalDetails() throws Exception {
+        when(service.findById(1L)).thenThrow(new IllegalStateException("SELECT * FROM production_lines failed"));
+
+        mvc.perform(get("/api/lines/1"))
+            .andExpect(status().isInternalServerError())
+            .andExpect(jsonPath("$.detail").value("An unexpected error occurred"));
+    }
+
+    @Test
     void deleteReturns204() throws Exception {
         mvc.perform(delete("/api/lines/1"))
             .andExpect(status().isNoContent());
