@@ -4,6 +4,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.hibernate.exception.ConstraintViolationException;
+import org.postgresql.util.PSQLException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -84,7 +85,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static String constraintName(Throwable ex) {
         for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
-            if (cause instanceof ConstraintViolationException cve) {
+            if (cause instanceof PSQLException psql && psql.getServerErrorMessage() != null) {
+                return psql.getServerErrorMessage().getConstraint();
+            }
+            if (cause instanceof ConstraintViolationException cve
+                && cve.getConstraintName() != null
+            ) {
                 return cve.getConstraintName();
             }
         }

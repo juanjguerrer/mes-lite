@@ -93,8 +93,7 @@ class ProductionLineErrorHandlingTest {
 
         mvc.perform(delete("/api/lines/" + line.getId()))
             .andExpect(status().isConflict())
-            .andExpect(jsonPath("$.detail", not(containsString("production_lines"))))
-            .andExpect(jsonPath("$.detail", not(containsString("delete"))));
+            .andExpect(jsonPath("$.detail").value("The line cannot be deleted because it has associated machines."));
 
         assertThat(lineRepository.existsById(line.getId())).isTrue();
     }

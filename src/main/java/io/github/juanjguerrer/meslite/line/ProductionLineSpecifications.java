@@ -4,9 +4,9 @@ import java.util.Locale;
 
 import org.springframework.data.jpa.domain.Specification;
 
-public final class ProductionLineSpecifications {
-    private static final char ESCAPE = '\\';
+import io.github.juanjguerrer.meslite.common.LikeEscaper;
 
+public final class ProductionLineSpecifications {
     private ProductionLineSpecifications() { }
 
     public static Specification<ProductionLine> codeEquals(String code) {
@@ -16,18 +16,11 @@ public final class ProductionLineSpecifications {
 
     public static Specification<ProductionLine> codeContains(String code) {
         String normalizedCode = code.trim().toUpperCase(Locale.ROOT);
-        return (root, query, cb) -> cb.like(cb.upper(root.get("code")), "%" + escapeLike(normalizedCode.toUpperCase(Locale.ROOT)) + "%", ESCAPE);
+        return (root, query, cb) -> cb.like(cb.upper(root.get("code")), "%" + LikeEscaper.escape(normalizedCode.toUpperCase(Locale.ROOT)) + "%", LikeEscaper.ESCAPE_CHAR);
     }
 
     public static Specification<ProductionLine> nameContains(String name) {
         String normalizedName = name.trim();
-        return (root, query, cb) -> cb.like(cb.lower(root.get("name")), "%" + escapeLike(normalizedName.toLowerCase(Locale.ROOT)) + "%", ESCAPE);
-    }
-
-    private static String escapeLike(String value) {
-        return value
-                .replace("\\", "\\\\")
-                .replace("%", "\\%")
-                .replace("_", "\\_");
+        return (root, query, cb) -> cb.like(cb.lower(root.get("name")), "%" + LikeEscaper.escape(normalizedName.toLowerCase(Locale.ROOT)) + "%", LikeEscaper.ESCAPE_CHAR);
     }
 }

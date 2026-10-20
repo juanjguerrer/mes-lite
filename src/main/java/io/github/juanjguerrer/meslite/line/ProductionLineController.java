@@ -23,9 +23,12 @@ import io.github.juanjguerrer.meslite.common.LogicalOperator;
 import io.github.juanjguerrer.meslite.line.dto.CreateLineRequest;
 import io.github.juanjguerrer.meslite.line.dto.LineResponse;
 import io.github.juanjguerrer.meslite.line.dto.UpdateLineRequest;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 @RestController
+@Tag(name = "Production lines", description = "Catalog of production lines")
 @RequestMapping("/api/lines")
 public class ProductionLineController {
     private final ProductionLineService service;
@@ -35,6 +38,7 @@ public class ProductionLineController {
     }
 
     @PostMapping
+    @Operation(summary = "Create a production line")
     public ResponseEntity<LineResponse> create(@Valid @RequestBody CreateLineRequest request) {
         LineResponse response = service.create(request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
@@ -45,11 +49,13 @@ public class ProductionLineController {
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Get a production line by id")
     public LineResponse findById(@PathVariable Long id) {
         return service.findById(id);
     }
 
     @GetMapping
+    @Operation(summary = "List production lines with optional filters")
     public Page<LineResponse> list(
         @RequestParam(defaultValue = "AND") LogicalOperator operator,
         @RequestParam(required = false) String code,
@@ -60,11 +66,13 @@ public class ProductionLineController {
     }
 
     @PutMapping("/{id}")
+    @Operation(summary = "Update the name and description of a production line")
     public LineResponse update(@PathVariable Long id, @Valid @RequestBody UpdateLineRequest request) {
         return service.update(id, request);
     }
 
     @DeleteMapping("/{id}")
+    @Operation(summary = "Delete a production line without machines")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {
         service.delete(id);
