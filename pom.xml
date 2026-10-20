@@ -15,7 +15,10 @@
 	<description>Lightweight MES: production lines, machines, state events and OEE</description>
 	<url>https://github.com/juanjguerrer/mes-lite</url>
 	<licenses>
-		<license/>
+		<license>
+			<name>MIT License</name>
+			<url>https://opensource.org/license/mit</url>
+		</license>
 	</licenses>
 	<developers>
 		<developer>
