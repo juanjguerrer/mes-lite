@@ -3,28 +3,41 @@ package io.github.juanjguerrer.meslite.event;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import io.github.juanjguerrer.meslite.common.BusinessRuleException;
+import io.github.juanjguerrer.meslite.common.ConflictException;
 import io.github.juanjguerrer.meslite.common.NotFoundException;
 import io.github.juanjguerrer.meslite.event.dto.CreateStateEventRequest;
 import io.github.juanjguerrer.meslite.event.dto.StateEventResponse;
+import io.github.juanjguerrer.meslite.line.ProductionLine;
+import io.github.juanjguerrer.meslite.line.ProductionLineRepository;
 import io.github.juanjguerrer.meslite.machine.Machine;
 import io.github.juanjguerrer.meslite.machine.MachineRepository;
-import io.github.juanjguerrer.meslite.common.ConflictException;
+import io.github.juanjguerrer.meslite.event.dto.MachineCurrentStateResponse;
+
 
 @Service
 public class MachineStateEventService {
     private final MachineStateEventRepository repository;
     private final MachineRepository machineRepository;
+    private final ProductionLineRepository lineRepository;
     private final Clock clock;
 
-    public MachineStateEventService(MachineStateEventRepository repository, MachineRepository machineRepository, Clock clock) {
+    public MachineStateEventService(MachineStateEventRepository repository, MachineRepository machineRepository, Clock clock, ProductionLineRepository lineRepository) {
         this.repository = repository;
         this.machineRepository = machineRepository;
         this.clock = clock;
+        this.lineRepository = lineRepository;
     }
 
     public record IngestResult(StateEventResponse event, boolean created) { }
@@ -52,6 +65,61 @@ public class MachineStateEventService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public Page<StateEventResponse> history(
+        Long machineId,
+        Instant from,
+        Instant to,
+        Pageable pageable
+    ) {
+        if (!machineRepository.existsById(machineId)) {
+            throw NotFoundException.byId("Machine", machineId);
+        }
+        if (from != null && to != null && from.isAfter(to)) {
+            throw new BusinessRuleException("Invalid time range: 'from' timestamp must be before 'to' timestamp.");
+        }
+
+        List<Specification<MachineStateEvent>> specs = new ArrayList<>();
+        if (from != null) {
+            from = from.truncatedTo(ChronoUnit.MICROS);
+            specs.add(MachineStateEventSpecifications.occurredAtFrom(from));
+        }
+        if (to != null) {
+            to = to.truncatedTo(ChronoUnit.MICROS);
+            specs.add(MachineStateEventSpecifications.occurredAtBefore(to));
+        }
+        specs.add(MachineStateEventSpecifications.machineEquals(machineId));
+
+        Specification<MachineStateEvent> spec = Specification.allOf(specs);
+
+        return repository.findAll(spec, pageable).map(StateEventResponse::from);
+    }
+
+    @Transactional(readOnly = true)
+    public MachineCurrentStateResponse currentState(Long machineId) {
+        var machine = machineRepository.findById(machineId)
+            .orElseThrow(() -> NotFoundException.byId("Machine", machineId));
+        var lastEvent = repository.findFirstByMachineIdOrderByOccurredAtDescIdDesc(machineId);
+        return new MachineCurrentStateResponse(
+            machine.getId(),
+            machine.getCode(),
+            lastEvent.map(MachineStateEvent::getState).orElse(null),
+            lastEvent.map(MachineStateEvent::getOccurredAt).orElse(null)
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List<MachineCurrentStateResponse> currentStatesByLine(Long lineId) {
+        if (!lineRepository.existsById(lineId)) {
+            throw NotFoundException.byId("Production line", lineId);
+        }
+
+        List<MachineStateRow> rows = repository.findLatestByLineId(lineId);
+        return rows.stream()
+            .map(this::toResponse)
+            .toList();
+    }
+
     public StateEventResponse findById(Long id) {
         return repository.findById(id)
             .map(StateEventResponse::from)
@@ -63,5 +131,15 @@ public class MachineStateEventService {
             throw new ConflictException("eventId " + existing.getEventId() + " was already used for a different event");
         }
         return new IngestResult(StateEventResponse.from(existing), false);
+    }
+
+    private MachineCurrentStateResponse toResponse(MachineStateRow row) {
+        MachineState state = row.getState() == null ? null : MachineState.valueOf(row.getState());
+        return new MachineCurrentStateResponse(
+            row.getMachineId(),
+            row.getMachineCode(),
+            state,
+            row.getSince()
+        );
     }
 }
