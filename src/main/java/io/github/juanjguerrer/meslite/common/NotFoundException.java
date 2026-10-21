@@ -2,7 +2,19 @@ package io.github.juanjguerrer.meslite.common;
 
 public class NotFoundException extends RuntimeException {
 
-    public NotFoundException(String resource, Object id) {
-        super(resource + " with id " + id + " not found");
+    private NotFoundException(String message) {
+        super(message);
+    }
+
+    public static NotFoundException byId(String entityName, Object id) {
+        return new NotFoundException(entityName + " with id " + id + " not found");
+    }
+
+    public static NotFoundException byCode(String entityName, Object code) {
+        return new NotFoundException(entityName + " with code " + code + " not found");
+    }
+
+    public static NotFoundException byLineCodeAndMachineCode(String lineCode, String machineCode) {
+        return new NotFoundException("Machine with line code " + lineCode + " and machine code " + machineCode + " not found");
     }
 }

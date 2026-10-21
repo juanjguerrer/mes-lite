@@ -32,7 +32,7 @@ public class MachineService {
     @Transactional
     public MachineResponse create(CreateMachineRequest request, Long lineId) {
         ProductionLine line = lineRepository.findById(lineId)
-            .orElseThrow(() -> new NotFoundException("Production line", lineId));
+            .orElseThrow(() -> NotFoundException.byId("Production line", lineId));
         String code = CodeRules.normalizeCode(request.code());
         Integer cycleMs = CycleTimeRules.toMillis(request.idealCycleTime(), request.idealCycleTimeUnit());
         Machine machine = new Machine(request.name(), code, request.description(), cycleMs, line);
@@ -42,13 +42,13 @@ public class MachineService {
     @Transactional(readOnly = true)
     public MachineResponse findById(Long id) {
         return repository.findById(id).map(MachineResponse::from)
-            .orElseThrow(() -> new NotFoundException("Machine", id));
+            .orElseThrow(() -> NotFoundException.byId("Machine", id));
     }
 
     @Transactional
     public MachineResponse update(Long id, UpdateMachineRequest request) {
         Machine machine = repository.findById(id)
-            .orElseThrow(() -> new NotFoundException("Machine", id));
+            .orElseThrow(() -> NotFoundException.byId("Machine", id));
         Integer cycleMs = CycleTimeRules.toMillis(request.idealCycleTime(), request.idealCycleTimeUnit());
         machine.setName(request.name());
         machine.setDescription(request.description());
@@ -59,7 +59,7 @@ public class MachineService {
     @Transactional
     public void delete(Long id) {
         if (!repository.existsById(id)) {
-            throw new NotFoundException("Machine", id);
+            throw NotFoundException.byId("Machine", id);
         }
         repository.deleteById(id);
     }
@@ -67,7 +67,7 @@ public class MachineService {
     @Transactional(readOnly = true)
     public Page<MachineResponse> listByLine(Pageable pageable, Long lineId) {
         lineRepository.findById(lineId)
-            .orElseThrow(() -> new NotFoundException("Production line", lineId));
+            .orElseThrow(() -> NotFoundException.byId("Production line", lineId));
         Specification<Machine> spec = MachineSpecifications.lineEquals(lineId);
         return repository.findAll(spec, pageable).map(MachineResponse::from);
     }

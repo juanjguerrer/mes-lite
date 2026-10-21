@@ -82,4 +82,10 @@ public class MachineStateEvent {
     public String getReason() {
         return reason;
     }
+
+    public boolean describesSameFact(Machine machine, MachineState state, Instant occurredAt) {
+        return this.machine.getId().equals(machine.getId()) &&
+            this.state == state &&
+            this.occurredAt.equals(occurredAt);
+    }
 }

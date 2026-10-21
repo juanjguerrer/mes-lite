@@ -34,13 +34,13 @@ public class ProductionLineService {
     @Transactional(readOnly = true)
     public LineResponse findById(Long id) {
         return repository.findById(id).map(LineResponse::from)
-            .orElseThrow(() -> new NotFoundException("Production line", id));
+            .orElseThrow(() -> NotFoundException.byId("Production line", id));
     }
 
     @Transactional
     public LineResponse update(Long id, UpdateLineRequest request) {
         ProductionLine productionLine = repository.findById(id)
-            .orElseThrow(() -> new NotFoundException("Production line", id));
+            .orElseThrow(() -> NotFoundException.byId("Production line", id));
         productionLine.setName(request.name());
         productionLine.setDescription(request.description());
         return LineResponse.from(repository.saveAndFlush(productionLine));
@@ -49,7 +49,7 @@ public class ProductionLineService {
     @Transactional
     public void delete(Long id) {
         if (!repository.existsById(id)) {
-            throw new NotFoundException("Production line", id);
+            throw NotFoundException.byId("Production line", id);
         }
         repository.deleteById(id);
     }

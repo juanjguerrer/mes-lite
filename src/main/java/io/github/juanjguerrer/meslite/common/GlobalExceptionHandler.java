@@ -65,6 +65,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred");
     }
 
+    @ExceptionHandler(ConflictException.class)
+    public ProblemDetail handleConflictException(ConflictException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
         MethodArgumentNotValidException ex,
@@ -97,5 +102,4 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         }
         return null;
     }
-
 }
