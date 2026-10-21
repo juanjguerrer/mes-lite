@@ -1,5 +1,6 @@
 package io.github.juanjguerrer.meslite.event;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -24,4 +25,6 @@ public interface MachineStateEventRepository
         ORDER BY m.id, e.occurred_at DESC, e.id DESC
     """, nativeQuery = true)
     List<MachineStateRow> findLatestByLineId(@Param("lineId") Long lineId);
+
+    Optional<MachineStateEvent> findFirstByMachineIdAndOccurredAtBeforeOrderByOccurredAtDescIdDesc(Long machineId, Instant from);
 }

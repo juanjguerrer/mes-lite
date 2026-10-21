@@ -1,6 +1,7 @@
 package io.github.juanjguerrer.meslite.event;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -10,6 +11,7 @@ import java.util.Locale;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +26,7 @@ import io.github.juanjguerrer.meslite.line.ProductionLineRepository;
 import io.github.juanjguerrer.meslite.machine.Machine;
 import io.github.juanjguerrer.meslite.machine.MachineRepository;
 import io.github.juanjguerrer.meslite.event.dto.MachineCurrentStateResponse;
+import io.github.juanjguerrer.meslite.event.dto.StateDurationsResponse;
 
 
 @Service
@@ -32,8 +35,14 @@ public class MachineStateEventService {
     private final MachineRepository machineRepository;
     private final ProductionLineRepository lineRepository;
     private final Clock clock;
+    private static final Duration MAX_DURATION = Duration.ofDays(31);
 
-    public MachineStateEventService(MachineStateEventRepository repository, MachineRepository machineRepository, Clock clock, ProductionLineRepository lineRepository) {
+    public MachineStateEventService(
+        MachineStateEventRepository repository,
+        MachineRepository machineRepository,
+        Clock clock, ProductionLineRepository
+        lineRepository
+    ) {
         this.repository = repository;
         this.machineRepository = machineRepository;
         this.clock = clock;
@@ -140,6 +149,49 @@ public class MachineStateEventService {
             row.getMachineCode(),
             state,
             row.getSince()
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public StateDurationsResponse stateDurations(Long machineId, Instant from, Instant to) {
+        if (!machineRepository.existsById(machineId)) {
+            throw NotFoundException.byId("Machine", machineId);
+        }
+        from = from.truncatedTo(ChronoUnit.MICROS);
+        to = to.truncatedTo(ChronoUnit.MICROS);
+        if (Duration.between(from, to).compareTo(MAX_DURATION) > 0) {
+            throw new BusinessRuleException("Invalid time range: 'from' and 'to' timestamps must be within 31 days.");
+        }
+        Instant now = Instant.now(clock).truncatedTo(ChronoUnit.MICROS);
+        if (to.isAfter(now)) {
+            to = now;
+        }
+        if (!from.isBefore(to)) {
+            throw new BusinessRuleException("Invalid time range: 'from' timestamp must be before 'to' timestamp.");
+        }
+        var initialState = repository.findFirstByMachineIdAndOccurredAtBeforeOrderByOccurredAtDescIdDesc(machineId, from)
+            .map(MachineStateEvent::getState)
+            .orElse(null);
+
+        Specification<MachineStateEvent> spec = Specification
+            .allOf(
+                MachineStateEventSpecifications.machineEquals(machineId),
+                MachineStateEventSpecifications.occurredAtFrom(from),
+                MachineStateEventSpecifications.occurredAtBefore(to)
+            );
+
+        var changes = repository.findAll(spec, Sort.by(MachineStateEvent::getOccurredAt, MachineStateEvent::getId))
+            .stream()
+            .map(e -> new StateDurations.StateChange(e.getState(), e.getOccurredAt()))
+            .toList();
+
+        var durations = StateDurations.calculate(initialState, changes, from, to);
+        return new StateDurationsResponse(
+            machineId,
+            from,
+            to,
+            durations.durationsMs(),
+            durations.unknownMs()
         );
     }
 }

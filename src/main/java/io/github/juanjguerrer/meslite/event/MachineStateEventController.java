@@ -22,6 +22,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import io.github.juanjguerrer.meslite.event.dto.CreateStateEventRequest;
 import io.github.juanjguerrer.meslite.event.dto.MachineCurrentStateResponse;
+import io.github.juanjguerrer.meslite.event.dto.StateDurationsResponse;
 import io.github.juanjguerrer.meslite.event.dto.StateEventResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -82,5 +83,15 @@ public class MachineStateEventController {
     @Operation(summary = "Get the current state of all machines in a production line")
     public List<MachineCurrentStateResponse> currentStatesByLine(@PathVariable Long id) {
         return service.currentStatesByLine(id);
+    }
+
+    @GetMapping("/machines/{id}/state-durations")
+    @Operation(summary = "Get the duration of each state for a machine")
+    public StateDurationsResponse stateDurations(
+        @PathVariable Long id,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to
+    ) {
+        return service.stateDurations(id, from, to);
     }
 }
