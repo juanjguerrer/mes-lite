@@ -27,4 +27,63 @@ public interface MachineStateEventRepository
     List<MachineStateRow> findLatestByLineId(@Param("lineId") Long lineId);
 
     Optional<MachineStateEvent> findFirstByMachineIdAndOccurredAtBeforeOrderByOccurredAtDescIdDesc(Long machineId, Instant from);
+
+    @Query(value = """
+        WITH first_event AS (
+            SELECT
+                id,
+                state,
+                occurred_at
+            FROM machine_state_events
+            WHERE machine_id = :machineId
+            AND occurred_at < CAST(:from AS timestamptz)
+            ORDER BY occurred_at DESC, id DESC
+            LIMIT 1
+        ),
+        events_in_range AS (
+            SELECT
+                id,
+                state,
+                occurred_at
+            FROM machine_state_events
+            WHERE machine_id = :machineId
+            AND occurred_at >= CAST(:from AS timestamptz)
+            AND occurred_at < CAST(:to AS timestamptz)
+        ),
+        events_in_range_with_initial AS (
+            (SELECT
+                id,
+                state,
+                occurred_at
+            FROM first_event)
+            UNION ALL
+            (SELECT
+                id,
+                state,
+                occurred_at
+            FROM events_in_range)
+        ),
+        events_with_end AS (
+        SELECT
+            state,
+            occurred_at,
+            LEAD(occurred_at, 1, CAST(:to AS timestamptz)) OVER (ORDER BY occurred_at, id) AS ended_at
+        FROM events_in_range_with_initial
+        )
+
+        SELECT
+            state,
+            CAST(SUM(FLOOR(
+                EXTRACT(EPOCH
+                    FROM(ended_at - GREATEST(occurred_at, CAST(:from AS timestamptz)))
+                )*1000
+            )) as BIGINT) as "durationMs"
+        FROM events_with_end
+        GROUP BY state
+        """, nativeQuery = true)
+    List<StateDurationRow> sumDurationsByState(
+        @Param("machineId") Long machineId,
+        @Param("from") Instant from,
+        @Param("to") Instant to
+    );
 }

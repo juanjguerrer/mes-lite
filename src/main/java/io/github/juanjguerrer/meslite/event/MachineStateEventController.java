@@ -86,7 +86,12 @@ public class MachineStateEventController {
     }
 
     @GetMapping("/machines/{id}/state-durations")
-    @Operation(summary = "Get the duration of each state for a machine")
+    @Operation(
+        summary = "Get the duration of each state for a machine",
+        description = "Milliseconds spent in each state within [from, to). The state at 'from' comes from the last event "
+            + "before it; time before the machine's first event is reported as unknownMs. 'to' is clipped to the "
+            + "current time and the range may not exceed 31 days."
+    )
     public StateDurationsResponse stateDurations(
         @PathVariable Long id,
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
