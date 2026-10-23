@@ -1,6 +1,6 @@
 package io.github.juanjguerrer.meslite.machine.dto;
 
-import io.github.juanjguerrer.meslite.common.CycleTimeUnit;
+import io.github.juanjguerrer.meslite.machine.CycleTimeUnit;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
