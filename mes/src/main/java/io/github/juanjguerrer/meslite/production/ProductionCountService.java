@@ -85,7 +85,7 @@ public class ProductionCountService {
     private IngestResult replay(ProductionCount existing, Machine machine,
         Long goodCount, Long scrapCount, Instant from, Instant to
     ) {
-        if (!existing.describesSameFact(machine, goodCount, scrapCount, from, to)) {
+        if (!existing.describesSameFact(machine, goodCount, scrapCount, from, to, existing.getSequence())) {
             throw new ConflictException("eventId " + existing.getEventId() + " already exists with different data.");
         }
         return new IngestResult(ProductionCountResponse.from(existing), false);

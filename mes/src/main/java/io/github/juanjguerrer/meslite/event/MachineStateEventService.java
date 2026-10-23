@@ -136,7 +136,7 @@ public class MachineStateEventService {
     }
 
     private IngestResult replay(MachineStateEvent existing, Machine machine, MachineState state, Instant occurredAt) {
-        if (!existing.describesSameFact(machine, state, occurredAt)) {
+        if (!existing.describesSameFact(machine, state, occurredAt, existing.getSequence())) {
             throw new ConflictException("eventId " + existing.getEventId() + " was already used for a different event");
         }
         return new IngestResult(StateEventResponse.from(existing), false);

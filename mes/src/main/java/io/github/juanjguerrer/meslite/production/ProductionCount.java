@@ -103,4 +103,8 @@ public class ProductionCount {
     public Instant getReceivedAt() {
         return receivedAt;
     }
+
+    public Long getSequence() {
+        return sequence;
+    }
 }
