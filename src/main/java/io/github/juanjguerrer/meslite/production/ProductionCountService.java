@@ -76,9 +76,9 @@ public class ProductionCountService {
         try {
             return new IngestResult(ProductionCountResponse.from(repository.save(count)), true);
         } catch (DataIntegrityViolationException e) {
-            var concurrentEvent = repository.findByEventId(request.eventId())
+            var concurrentCount = repository.findByEventId(request.eventId())
             .orElseThrow(() -> e);
-            return replay(concurrentEvent, machine, request.goodCount(), request.scrapCount(), from, to);
+            return replay(concurrentCount, machine, request.goodCount(), request.scrapCount(), from, to);
         }
     }
 
