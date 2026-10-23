@@ -58,6 +58,12 @@ The goal is to track what happens on a shop floor and compute **OEE** (Overall E
 
 You do not need Maven installed: the project ships the Maven Wrapper (`./mvnw`).
 
+The MES lives in the `mes/` folder; run every command below from there:
+
+```bash
+cd mes
+```
+
 ### 1. Create the database
 
 ```sql
@@ -66,7 +72,7 @@ CREATE DATABASE mes_lite;
 
 ### 2. Configure credentials
 
-Copy `.env.example` to `.env` and set your database password. `.env` is git-ignored.
+Copy `mes/.env.example` to `mes/.env` and set your database password. `.env` is git-ignored.
 
 ```bash
 cp .env.example .env
@@ -289,7 +295,7 @@ Every error uses the same shape:
 Packages are organized by feature, not by layer:
 
 ```
-src/main/java/io/github/juanjguerrer/meslite/
+mes/src/main/java/io/github/juanjguerrer/meslite/
   common/    shared rules (codes, cycle times), exceptions and the global error handler
   line/      production line entity, repository, service, controller, DTOs
   machine/   machine entity, repository, service, controller, DTOs
@@ -297,8 +303,8 @@ src/main/java/io/github/juanjguerrer/meslite/
   shift/     shifts, overlap rule and shift-to-UTC resolution
   production/ production counts: ingestion and totals
   oee/       OEE calculation and endpoints
-src/main/resources/db/migration/   Flyway migrations
-src/main/resources/db/seed/        dev-only sample data (repeatable migration)
+mes/src/main/resources/db/migration/   Flyway migrations
+mes/src/main/resources/db/seed/        dev-only sample data (repeatable migration)
 ```
 
 Each request flows **controller → service → repository**. Controllers only speak DTOs; entities never leave the service layer.
@@ -322,7 +328,7 @@ Each request flows **controller → service → repository**. Controllers only s
 - [x] **v0.1** Production line and machine catalog
 - [x] **v0.2** Machine state events (running, idle, down…)
 - [x] **v0.3** Shifts, production counts and OEE
-- [ ] **v0.4** Plant simulator over MQTT (later OPC UA)
+- [ ] **v0.4** Plant simulation chain: simulated PLC in Python (OPC UA) → collector in C# → MQTT → MES
 - [ ] Later: dashboard and charts
 
 ## License
