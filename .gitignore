@@ -35,3 +35,7 @@ build/
 
 ### OS ###
 .env
+
+### MOSQUITTO ###
+mosquitto/data/
+mosquitto/log/
