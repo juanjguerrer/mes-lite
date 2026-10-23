@@ -8,11 +8,11 @@ import java.util.Locale;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import io.github.juanjguerrer.meslite.common.BusinessRuleException;
-import io.github.juanjguerrer.meslite.common.InvalidRequestException;
-import io.github.juanjguerrer.meslite.common.NotFoundException;
-import io.github.juanjguerrer.meslite.common.PlantProperties;
-import io.github.juanjguerrer.meslite.common.TimeRanges;
+import io.github.juanjguerrer.meslite.common.config.PlantProperties;
+import io.github.juanjguerrer.meslite.common.exception.BusinessRuleException;
+import io.github.juanjguerrer.meslite.common.exception.InvalidRequestException;
+import io.github.juanjguerrer.meslite.common.exception.NotFoundException;
+import io.github.juanjguerrer.meslite.common.query.TimeRanges;
 import io.github.juanjguerrer.meslite.event.MachineStateEventService;
 import io.github.juanjguerrer.meslite.event.StateDurations;
 import io.github.juanjguerrer.meslite.event.dto.StateDurationsResponse;
@@ -23,8 +23,8 @@ import io.github.juanjguerrer.meslite.oee.dto.OeeResponse;
 import io.github.juanjguerrer.meslite.production.ProductionCountService;
 import io.github.juanjguerrer.meslite.production.dto.ProductionTotalsResponse;
 import io.github.juanjguerrer.meslite.shift.ShiftRepository;
-import io.github.juanjguerrer.meslite.shift.ShiftWindow;
 import io.github.juanjguerrer.meslite.shift.ShiftWindow.Window;
+import io.github.juanjguerrer.meslite.shift.ShiftWindow;
 
 @Service
 public class OeeService {

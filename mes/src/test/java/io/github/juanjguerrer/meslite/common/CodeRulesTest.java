@@ -9,6 +9,8 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import io.github.juanjguerrer.meslite.common.exception.BusinessRuleException;
+
 class CodeRulesTest {
 
     @ParameterizedTest

@@ -27,7 +27,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import io.github.juanjguerrer.meslite.common.LogicalOperator;
+import io.github.juanjguerrer.meslite.common.query.LogicalOperator;
 import io.github.juanjguerrer.meslite.line.dto.CreateLineRequest;
 import io.github.juanjguerrer.meslite.line.dto.LineResponse;
 import io.github.juanjguerrer.meslite.line.dto.UpdateLineRequest;

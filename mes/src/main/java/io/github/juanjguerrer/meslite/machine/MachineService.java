@@ -10,13 +10,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.juanjguerrer.meslite.common.CodeRules;
-import io.github.juanjguerrer.meslite.common.LogicalOperator;
-import io.github.juanjguerrer.meslite.common.NotFoundException;
+import io.github.juanjguerrer.meslite.common.exception.NotFoundException;
+import io.github.juanjguerrer.meslite.common.query.LogicalOperator;
+import io.github.juanjguerrer.meslite.line.ProductionLine;
+import io.github.juanjguerrer.meslite.line.ProductionLineRepository;
 import io.github.juanjguerrer.meslite.machine.dto.CreateMachineRequest;
 import io.github.juanjguerrer.meslite.machine.dto.MachineResponse;
 import io.github.juanjguerrer.meslite.machine.dto.UpdateMachineRequest;
-import io.github.juanjguerrer.meslite.line.ProductionLineRepository;
-import io.github.juanjguerrer.meslite.line.ProductionLine;
 
 @Service
 public class MachineService {

@@ -3,6 +3,8 @@ package io.github.juanjguerrer.meslite.common;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
+import io.github.juanjguerrer.meslite.common.exception.BusinessRuleException;
+
 public final class CodeRules {
     private static final int MAX_CODE_LENGTH = 50;
     private static final Pattern CODE_PATTERN = Pattern.compile("(?![-_])[A-Z0-9_-]+(?<![-_])");

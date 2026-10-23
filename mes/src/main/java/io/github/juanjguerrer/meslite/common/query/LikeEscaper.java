@@ -1,4 +1,4 @@
-package io.github.juanjguerrer.meslite.common;
+package io.github.juanjguerrer.meslite.common.query;
 
 public final class LikeEscaper {
     public static final char ESCAPE_CHAR = '\\';

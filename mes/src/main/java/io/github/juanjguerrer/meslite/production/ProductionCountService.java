@@ -9,10 +9,10 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import io.github.juanjguerrer.meslite.common.BusinessRuleException;
-import io.github.juanjguerrer.meslite.common.ConflictException;
-import io.github.juanjguerrer.meslite.common.NotFoundException;
-import io.github.juanjguerrer.meslite.common.TimeRanges;
+import io.github.juanjguerrer.meslite.common.exception.BusinessRuleException;
+import io.github.juanjguerrer.meslite.common.exception.ConflictException;
+import io.github.juanjguerrer.meslite.common.exception.NotFoundException;
+import io.github.juanjguerrer.meslite.common.query.TimeRanges;
 import io.github.juanjguerrer.meslite.event.EventTimeRules;
 import io.github.juanjguerrer.meslite.machine.Machine;
 import io.github.juanjguerrer.meslite.machine.MachineRepository;

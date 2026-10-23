@@ -1,4 +1,4 @@
-package io.github.juanjguerrer.meslite.common;
+package io.github.juanjguerrer.meslite.common.exception;
 
 public class NotFoundException extends RuntimeException {
 

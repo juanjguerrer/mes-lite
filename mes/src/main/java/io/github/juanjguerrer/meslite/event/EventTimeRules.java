@@ -4,7 +4,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 
-import io.github.juanjguerrer.meslite.common.BusinessRuleException;
+import io.github.juanjguerrer.meslite.common.exception.BusinessRuleException;
 
 public final class EventTimeRules {
     private static final Duration FUTURE_TOLERANCE = Duration.ofMinutes(5);

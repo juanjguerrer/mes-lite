@@ -1,4 +1,4 @@
-package io.github.juanjguerrer.meslite.common;
+package io.github.juanjguerrer.meslite.common.exception;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

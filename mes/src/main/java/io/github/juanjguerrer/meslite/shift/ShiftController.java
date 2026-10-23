@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import io.github.juanjguerrer.meslite.common.LogicalOperator;
+import io.github.juanjguerrer.meslite.common.query.LogicalOperator;
 import io.github.juanjguerrer.meslite.shift.dto.CreateShiftRequest;
 import io.github.juanjguerrer.meslite.shift.dto.ShiftResponse;
 import io.github.juanjguerrer.meslite.shift.dto.UpdateShiftRequest;

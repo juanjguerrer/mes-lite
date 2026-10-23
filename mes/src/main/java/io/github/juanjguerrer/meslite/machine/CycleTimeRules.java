@@ -2,7 +2,7 @@ package io.github.juanjguerrer.meslite.machine;
 
 import java.time.Duration;
 
-import io.github.juanjguerrer.meslite.common.BusinessRuleException;
+import io.github.juanjguerrer.meslite.common.exception.BusinessRuleException;
 
 public final class CycleTimeRules {
     private static final long MAX_CYCLE_TIME_MS = 24 * 60 * 60 * 1000;

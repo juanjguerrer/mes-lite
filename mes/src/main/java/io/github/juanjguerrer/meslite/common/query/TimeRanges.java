@@ -1,9 +1,11 @@
-package io.github.juanjguerrer.meslite.common;
+package io.github.juanjguerrer.meslite.common.query;
 
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+
+import io.github.juanjguerrer.meslite.common.exception.BusinessRuleException;
 
 public final class TimeRanges {
     private static final Duration MAX_DURATION = Duration.ofDays(31);

@@ -4,7 +4,7 @@ import java.util.Locale;
 
 import org.springframework.data.jpa.domain.Specification;
 
-import io.github.juanjguerrer.meslite.common.LikeEscaper;
+import io.github.juanjguerrer.meslite.common.query.LikeEscaper;
 
 public final class ShiftSpecifications {
     private ShiftSpecifications() {

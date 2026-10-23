@@ -9,10 +9,10 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import io.github.juanjguerrer.meslite.common.BusinessRuleException;
 import io.github.juanjguerrer.meslite.common.CodeRules;
-import io.github.juanjguerrer.meslite.common.LogicalOperator;
-import io.github.juanjguerrer.meslite.common.NotFoundException;
+import io.github.juanjguerrer.meslite.common.exception.BusinessRuleException;
+import io.github.juanjguerrer.meslite.common.exception.NotFoundException;
+import io.github.juanjguerrer.meslite.common.query.LogicalOperator;
 import io.github.juanjguerrer.meslite.line.ProductionLine;
 import io.github.juanjguerrer.meslite.line.ProductionLineRepository;
 import io.github.juanjguerrer.meslite.shift.dto.CreateShiftRequest;

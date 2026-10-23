@@ -1,4 +1,4 @@
-package io.github.juanjguerrer.meslite.common;
+package io.github.juanjguerrer.meslite.common.config;
 
 import java.time.Clock;
 
