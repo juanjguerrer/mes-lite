@@ -1,6 +1,7 @@
 package io.github.juanjguerrer.meslite.event;
 
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 
 import org.hibernate.annotations.CreationTimestamp;
@@ -43,6 +44,9 @@ public class MachineStateEvent {
 
     private String reason;
 
+    @Column(updatable = false)
+    private Long sequence;
+
     public MachineStateEvent(Machine machine, UUID eventId, MachineState state, Instant occurredAt, String reason) {
         this.machine = machine;
         this.eventId = eventId;
@@ -83,9 +87,15 @@ public class MachineStateEvent {
         return reason;
     }
 
-    public boolean describesSameFact(Machine machine, MachineState state, Instant occurredAt) {
+    public Long getSequence() {
+        return sequence;
+    }
+
+    public boolean describesSameFact(Machine machine, MachineState state, Instant occurredAt, Long sequence) {
         return this.machine.getId().equals(machine.getId()) &&
             this.state == state &&
-            this.occurredAt.equals(occurredAt);
+            this.occurredAt.equals(occurredAt) &&
+            Objects.equals(this.sequence, sequence)
+            ;
     }
 }

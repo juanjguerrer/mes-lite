@@ -1,6 +1,7 @@
 package io.github.juanjguerrer.meslite.production;
 
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 
 import org.hibernate.annotations.CreationTimestamp;
@@ -46,6 +47,9 @@ public class ProductionCount {
     @Column(nullable = false, updatable = false)
     private Instant receivedAt;
 
+    @Column(updatable = false)
+    private Long sequence;
+
     protected ProductionCount() {
         // Default constructor for JPA
     }
@@ -59,12 +63,13 @@ public class ProductionCount {
         this.intervalEnd = intervalEnd;
     }
 
-    public boolean describesSameFact(Machine machine, long goodCount, long scrapCount, Instant intervalStart, Instant intervalEnd) {
+    public boolean describesSameFact(Machine machine, long goodCount, long scrapCount, Instant intervalStart, Instant intervalEnd, Long sequence) {
         return this.machine.getId().equals(machine.getId())
             && this.goodCount == goodCount
             && this.scrapCount == scrapCount
             && this.intervalStart.equals(intervalStart)
-            && this.intervalEnd.equals(intervalEnd);
+            && this.intervalEnd.equals(intervalEnd)
+            && Objects.equals(this.sequence, sequence);
     }
 
     public Long getId() {
