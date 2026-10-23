@@ -36,7 +36,7 @@ import io.github.juanjguerrer.meslite.line.dto.UpdateLineRequest;
 class ProductionLineControllerTest {
 
     private static final Instant NOW = Instant.parse("2026-10-19T12:00:00Z");
-    private static final LineResponse LINE = new LineResponse(1L, "Assembly 1", "LINE-01", null, NOW, NOW);
+    private static final LineResponse LINE = new LineResponse(1L, "Assembly 1", "LINE-01", null, NOW, NOW, null);
 
     @Autowired
     private MockMvc mvc;
@@ -121,7 +121,7 @@ class ProductionLineControllerTest {
 
     @Test
     void updateReturnsUpdatedLine() throws Exception {
-        LineResponse updated = new LineResponse(1L, "Assembly A", "LINE-01", "Renamed", NOW, NOW);
+        LineResponse updated = new LineResponse(1L, "Assembly A", "LINE-01", "Renamed", NOW, NOW, null);
         when(service.update(eq(1L), any(UpdateLineRequest.class))).thenReturn(updated);
 
         mvc.perform(put("/api/lines/1")

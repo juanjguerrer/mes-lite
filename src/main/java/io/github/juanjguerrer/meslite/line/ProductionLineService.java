@@ -9,19 +9,24 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import io.github.juanjguerrer.meslite.common.BusinessRuleException;
 import io.github.juanjguerrer.meslite.common.CodeRules;
 import io.github.juanjguerrer.meslite.common.LogicalOperator;
 import io.github.juanjguerrer.meslite.common.NotFoundException;
 import io.github.juanjguerrer.meslite.line.dto.CreateLineRequest;
 import io.github.juanjguerrer.meslite.line.dto.LineResponse;
 import io.github.juanjguerrer.meslite.line.dto.UpdateLineRequest;
+import io.github.juanjguerrer.meslite.machine.Machine;
+import io.github.juanjguerrer.meslite.machine.MachineRepository;
 
 @Service
 public class ProductionLineService {
     private final ProductionLineRepository repository;
+    private final MachineRepository machineRepository;
 
-    public ProductionLineService(ProductionLineRepository repository) {
+    public ProductionLineService(ProductionLineRepository repository, MachineRepository machineRepository) {
         this.repository = repository;
+        this.machineRepository = machineRepository;
     }
 
     @Transactional
@@ -41,6 +46,16 @@ public class ProductionLineService {
     public LineResponse update(Long id, UpdateLineRequest request) {
         ProductionLine productionLine = repository.findById(id)
             .orElseThrow(() -> NotFoundException.byId("Production line", id));
+        if (request.referenceMachineId() == null) {
+            productionLine.setReferenceMachine(null);
+        } else {
+            Machine referenceMachine = machineRepository.findById(request.referenceMachineId())
+                .orElseThrow(() -> NotFoundException.byId("Machine", request.referenceMachineId()));
+            if (!referenceMachine.getLine().getId().equals(productionLine.getId())) {
+                throw new BusinessRuleException("The reference machine is not associated with this production line.");
+            }
+            productionLine.setReferenceMachine(referenceMachine);
+        }
         productionLine.setName(request.name());
         productionLine.setDescription(request.description());
         return LineResponse.from(repository.saveAndFlush(productionLine));

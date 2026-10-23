@@ -10,7 +10,8 @@ public record LineResponse(
     String code,
     String description,
     Instant createdAt,
-    Instant updatedAt
+    Instant updatedAt,
+    Long referenceMachineId
 ) {
     public static LineResponse from(ProductionLine productionLine) {
         return new LineResponse(
@@ -19,7 +20,8 @@ public record LineResponse(
             productionLine.getCode(),
             productionLine.getDescription(),
             productionLine.getCreatedAt(),
-            productionLine.getUpdatedAt()
+            productionLine.getUpdatedAt(),
+            productionLine.getReferenceMachine() == null ? null : productionLine.getReferenceMachine().getId()
         );
     }
 }

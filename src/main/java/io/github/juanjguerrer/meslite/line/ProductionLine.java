@@ -5,11 +5,15 @@ import java.time.Instant;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import io.github.juanjguerrer.meslite.machine.Machine;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
@@ -34,6 +38,10 @@ public class ProductionLine {
     @UpdateTimestamp
     @Column(nullable = false)
     private Instant updatedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reference_machine_id")
+    private Machine referenceMachine;
 
     public ProductionLine(String name, String code, String description) {
         this.name = name;
@@ -69,11 +77,19 @@ public class ProductionLine {
         return updatedAt;
     }
 
+    public Machine getReferenceMachine() {
+        return referenceMachine;
+    }
+
     public void setName(String name) {
         this.name = name;
     }
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public void setReferenceMachine(Machine referenceMachine) {
+        this.referenceMachine = referenceMachine;
     }
 }

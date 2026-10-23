@@ -1,0 +1,2 @@
+ALTER TABLE production_lines ADD COLUMN reference_machine_id BIGINT;
+ALTER TABLE production_lines ADD CONSTRAINT fk_production_lines_reference_machine_id FOREIGN KEY (reference_machine_id) REFERENCES machines(id) ON DELETE RESTRICT;
