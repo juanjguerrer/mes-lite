@@ -30,7 +30,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         "fk_machines_line_id", "The line cannot be deleted because it has associated machines.",
         "fk_machine_state_events_machine_id", "The machine cannot be deleted because it has associated state events.",
         "fk_shifts_line_id", "The production line cannot be deleted because it has associated shifts.",
-        "uq_shifts_line_id_code", "A shift with the same code already exists in this production line."
+        "uq_shifts_line_id_code", "A shift with the same code already exists in this production line.",
+        "fk_production_counts_machine_id", "The machine cannot be deleted because it has associated production counts."
     );
 
     @ExceptionHandler(NotFoundException.class)

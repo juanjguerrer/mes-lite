@@ -21,15 +21,14 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.juanjguerrer.meslite.common.BusinessRuleException;
 import io.github.juanjguerrer.meslite.common.ConflictException;
 import io.github.juanjguerrer.meslite.common.NotFoundException;
+import io.github.juanjguerrer.meslite.common.TimeRanges;
 import io.github.juanjguerrer.meslite.event.dto.CreateStateEventRequest;
 import io.github.juanjguerrer.meslite.event.dto.StateEventResponse;
-import io.github.juanjguerrer.meslite.line.ProductionLine;
 import io.github.juanjguerrer.meslite.line.ProductionLineRepository;
 import io.github.juanjguerrer.meslite.machine.Machine;
 import io.github.juanjguerrer.meslite.machine.MachineRepository;
 import io.github.juanjguerrer.meslite.event.dto.MachineCurrentStateResponse;
 import io.github.juanjguerrer.meslite.event.dto.StateDurationsResponse;
-import java.util.stream.Collectors;
 
 @Service
 public class MachineStateEventService {
@@ -37,7 +36,6 @@ public class MachineStateEventService {
     private final MachineRepository machineRepository;
     private final ProductionLineRepository lineRepository;
     private final Clock clock;
-    private static final Duration MAX_DURATION = Duration.ofDays(31);
 
     public MachineStateEventService(
         MachineStateEventRepository repository,
@@ -159,7 +157,7 @@ public class MachineStateEventService {
         if (!machineRepository.existsById(machineId)) {
             throw NotFoundException.byId("Machine", machineId);
         }
-        var range = validateAndAdjustRange(from, to);
+        var range = TimeRanges.validateAndAdjust(from, to, clock);
         from = range.from();
         to = range.to();
         var initialState = repository.findFirstByMachineIdAndOccurredAtBeforeOrderByOccurredAtDescIdDesc(machineId, from)
@@ -196,7 +194,7 @@ public class MachineStateEventService {
         if (!machineRepository.existsById(machineId)) {
             throw NotFoundException.byId("Machine", machineId);
         }
-        var range = validateAndAdjustRange(from, to);
+        var range = TimeRanges.validateAndAdjust(from, to, clock);
         from = range.from();
         to = range.to();
 
@@ -221,23 +219,5 @@ public class MachineStateEventService {
             durationsMs,
             unknownMs
         );
-    }
-
-    record Range(Instant from, Instant to) { }
-
-    private Range validateAndAdjustRange(Instant from, Instant to) {
-        from = from.truncatedTo(ChronoUnit.MICROS);
-        to = to.truncatedTo(ChronoUnit.MICROS);
-        if (Duration.between(from, to).compareTo(MAX_DURATION) > 0) {
-            throw new BusinessRuleException("Invalid time range: 'from' and 'to' timestamps must be within 31 days.");
-        }
-        Instant now = Instant.now(clock).truncatedTo(ChronoUnit.MICROS);
-        if (to.isAfter(now)) {
-            to = now;
-        }
-        if (!from.isBefore(to)) {
-            throw new BusinessRuleException("Invalid time range: 'from' timestamp must be before 'to' timestamp.");
-        }
-        return new Range(from, to);
     }
 }
