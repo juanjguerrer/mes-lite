@@ -12,6 +12,9 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mes
     steps:
       - uses: actions/checkout@v5
 
@@ -20,6 +23,7 @@ jobs:
           distribution: temurin
           java-version: 25
           cache: maven
+          cache-dependency-path: mes/pom.xml
 
       # Integration tests start PostgreSQL with Testcontainers, using the runner's Docker.
       - name: Build and test
