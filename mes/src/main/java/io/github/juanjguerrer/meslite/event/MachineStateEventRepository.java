@@ -10,6 +10,9 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import io.github.juanjguerrer.meslite.event.projection.MachineStateRow;
+import io.github.juanjguerrer.meslite.event.projection.StateDurationRow;
+
 public interface MachineStateEventRepository
     extends JpaRepository<MachineStateEvent, Long>,
     JpaSpecificationExecutor<MachineStateEvent> {

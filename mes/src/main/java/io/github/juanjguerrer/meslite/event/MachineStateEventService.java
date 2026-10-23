@@ -26,6 +26,8 @@ import io.github.juanjguerrer.meslite.event.dto.CreateStateEventRequest;
 import io.github.juanjguerrer.meslite.event.dto.MachineCurrentStateResponse;
 import io.github.juanjguerrer.meslite.event.dto.StateDurationsResponse;
 import io.github.juanjguerrer.meslite.event.dto.StateEventResponse;
+import io.github.juanjguerrer.meslite.event.projection.MachineStateRow;
+import io.github.juanjguerrer.meslite.event.projection.StateDurationRow;
 import io.github.juanjguerrer.meslite.line.ProductionLineRepository;
 import io.github.juanjguerrer.meslite.machine.Machine;
 import io.github.juanjguerrer.meslite.machine.MachineRepository;

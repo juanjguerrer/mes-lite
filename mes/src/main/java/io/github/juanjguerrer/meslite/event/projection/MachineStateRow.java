@@ -1,4 +1,4 @@
-package io.github.juanjguerrer.meslite.event;
+package io.github.juanjguerrer.meslite.event.projection;
 
 import java.time.Instant;
 
