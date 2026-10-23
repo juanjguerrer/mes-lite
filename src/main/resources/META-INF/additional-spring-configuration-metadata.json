@@ -1,0 +1,6 @@
+{"properties": [{
+  "name": "mes.plant.zone-id",
+  "type": "java.time.ZoneId",
+  "description": "Time zone of the plant, used to resolve shift times. Defaults to 'America/Mexico_City'.",
+  "defaultValue": "America/Mexico_City"
+}]}

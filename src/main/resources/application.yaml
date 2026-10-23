@@ -17,3 +17,7 @@ spring:
     url: "${DB_URL:jdbc:postgresql://localhost:5432/mes_lite}"
     username: "${DB_USERNAME:postgres}"
     password: "${DB_PASSWORD}"
+
+mes:
+  plant:
+    zone-id: "${MES_PLANT_ZONE_ID:America/Mexico_City}"
