@@ -1,4 +1,5 @@
 import asyncio
+from datetime import timezone
 
 from asyncua.server.server import Server
 from asyncua import ua
@@ -15,7 +16,8 @@ async def main():
     async with server:
         counter = 65530
         while True:
-            data = ua.DataValue(ua.Variant(counter, ua.VariantType.UInt16), SourceTimestamp = ua.DateTime.now())
+            time = ua.DateTime.now(timezone.utc)
+            data = ua.DataValue(ua.Variant(counter, ua.VariantType.UInt16), SourceTimestamp = time)
             await var.write_value(data)
             counter = (counter + 1) % 65536
             await asyncio.sleep(1)
