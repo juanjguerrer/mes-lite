@@ -1,6 +1,38 @@
-{"properties": [{
-  "name": "mes.plant.zone-id",
-  "type": "java.time.ZoneId",
-  "description": "Time zone of the plant, used to resolve shift times. Defaults to 'America/Mexico_City'.",
-  "defaultValue": "America/Mexico_City"
-}]}
+{"properties": [
+  {
+    "name": "mes.plant.zone-id",
+    "type": "java.time.ZoneId",
+    "description": "Time zone of the plant, used to resolve shift times. Defaults to 'America/Mexico_City'.",
+    "defaultValue": "America/Mexico_City"
+  },
+  {
+    "name": "mes.mqtt.enabled",
+    "type": "java.lang.Boolean",
+    "description": "Whether the MES connects to the MQTT broker and ingests shop-floor messages.",
+    "defaultValue": false
+  },
+  {
+    "name": "mes.mqtt.url",
+    "type": "java.lang.String",
+    "description": "MQTT broker URI.",
+    "defaultValue": "tcp://localhost:1883"
+  },
+  {
+    "name": "mes.mqtt.client-id",
+    "type": "java.lang.String",
+    "description": "Fixed MQTT client id. Must stay stable across restarts so the broker keeps the persistent session.",
+    "defaultValue": "mes-lite"
+  },
+  {
+    "name": "mes.mqtt.subscription-topics",
+    "type": "java.util.List<java.lang.String>",
+    "description": "Topic filters the MES subscribes to with QoS 1.",
+    "defaultValue": ["mes-lite/+/+/state", "mes-lite/+/+/production"]
+  },
+  {
+    "name": "mes.mqtt.dead-letter-topic",
+    "type": "java.lang.String",
+    "description": "Topic where rejected messages are published with the reason.",
+    "defaultValue": "mes-lite/dead-letter"
+  }
+]}

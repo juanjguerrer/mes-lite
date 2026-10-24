@@ -21,3 +21,11 @@ spring:
 mes:
   plant:
     zone-id: "${MES_PLANT_ZONE_ID:America/Mexico_City}"
+  mqtt:
+    enabled: "${MES_MQTT_ENABLED:false}"
+    url: "${MES_MQTT_URL:tcp://localhost:1883}"
+    client-id: "${MES_MQTT_CLIENT_ID:mes-lite}"
+    subscription-topics: "${MES_MQTT_SUBSCRIPTION_TOPICS:mes-lite/+/+/state,mes-lite/+/+/production}"
+    dead-letter-topic: mes-lite/dead-letter
+    session-expiry-interval: ${MES_MQTT_SESSION_EXPIRY_INTERVAL:3600}
+    qos: ${MES_MQTT_QOS:1}

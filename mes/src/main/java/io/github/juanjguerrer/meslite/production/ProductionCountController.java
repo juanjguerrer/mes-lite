@@ -38,7 +38,7 @@ public class ProductionCountController {
         @PathVariable String machineCode,
         @Valid @RequestBody CreateProductionCountRequest request
     ) {
-        var result = service.ingest(request, lineCode, machineCode);
+        var result = service.ingest(lineCode, machineCode, request);
         if (result.created()) {
             URI location = ServletUriComponentsBuilder.fromCurrentContextPath()
             .path("/api/production-counts/{id}")

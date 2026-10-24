@@ -54,9 +54,9 @@ public class ProductionCountService {
     // Not @Transactional on purpose: each repository call runs in its own transaction,
     // so after a unique violation on event_id we can still query the event that won the race.
     public IngestResult ingest(
-        CreateProductionCountRequest request,
         String lineCode,
-        String machineCode
+        String machineCode,
+        CreateProductionCountRequest request
     ) {
         String formattedLineCode = lineCode.trim().toUpperCase(Locale.ROOT);
         String formattedMachineCode = machineCode.trim().toUpperCase(Locale.ROOT);
