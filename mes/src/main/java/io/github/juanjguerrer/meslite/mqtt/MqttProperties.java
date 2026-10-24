@@ -18,6 +18,7 @@ public record MqttProperties(
     List<String> subscriptionTopics,
     String deadLetterTopic,
     @Min(0) @Max(2) int qos,
+    @Min(0) @Max(2) int deadLetterQos,
     @Min(0) long sessionExpiryInterval
 ) {
     @AssertTrue(message = "url, clientId, subscriptionTopics and deadLetterTopic must be set when MQTT is enabled (mes.mqtt.enabled=true)")

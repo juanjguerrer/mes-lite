@@ -3,6 +3,9 @@ package io.github.juanjguerrer.meslite.mqtt;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 
+import io.github.juanjguerrer.meslite.common.exception.BusinessRuleException;
+import io.github.juanjguerrer.meslite.common.exception.ConflictException;
+import io.github.juanjguerrer.meslite.common.exception.NotFoundException;
 import io.github.juanjguerrer.meslite.event.MachineStateEventService;
 import io.github.juanjguerrer.meslite.event.dto.CreateStateEventRequest;
 import io.github.juanjguerrer.meslite.production.ProductionCountService;
@@ -10,6 +13,7 @@ import io.github.juanjguerrer.meslite.production.dto.CreateProductionCountReques
 
 import java.util.Set;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.integration.annotation.ServiceActivator;
 import org.springframework.integration.mqtt.support.MqttHeaders;
 
@@ -19,29 +23,45 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 @Component
+@ConditionalOnProperty(prefix = "mes.mqtt", name = "enabled", havingValue = "true")
 public class MqttInboundHandler {
 
     private final ProductionCountService productionCountService;
     private final MachineStateEventService machineStateEventService;
     private final Validator validator;
     private final ObjectMapper objectMapper;
+    private final MqttDeadLetterPublisher deadLetterPublisher;
 
     public MqttInboundHandler(
         ProductionCountService productionCountService,
         MachineStateEventService machineStateEventService,
         Validator validator,
-        ObjectMapper objectMapper
+        ObjectMapper objectMapper,
+        MqttDeadLetterPublisher deadLetterPublisher
     ) {
         this.productionCountService = productionCountService;
         this.machineStateEventService = machineStateEventService;
         this.validator = validator;
         this.objectMapper = objectMapper;
+        this.deadLetterPublisher = deadLetterPublisher;
     }
 
     @ServiceActivator(inputChannel = "mqttInputChannel")
     public void handle(
         byte[] payload,
         @Header(MqttHeaders.RECEIVED_TOPIC) String topic
+    ) {
+        try {
+            process(payload, topic);
+        } catch (InvalidMqttMessageException | BusinessRuleException | NotFoundException | ConflictException e) {
+            String message = e.getClass().getSimpleName() + ": " + e.getMessage();
+            deadLetterPublisher.reject(topic, payload, message);
+        }
+    }
+
+    private void process(
+        byte[] payload,
+        String topic
     ) {
         MqttTopic topicParsed = MqttTopic.parse(topic);
         switch (topicParsed.messageType()) {

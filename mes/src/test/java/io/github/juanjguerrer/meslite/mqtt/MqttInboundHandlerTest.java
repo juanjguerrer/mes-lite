@@ -3,7 +3,9 @@ package io.github.juanjguerrer.meslite.mqtt;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -17,7 +19,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.DataAccessResourceFailureException;
 
+import io.github.juanjguerrer.meslite.common.exception.BusinessRuleException;
+import io.github.juanjguerrer.meslite.common.exception.ConflictException;
 import io.github.juanjguerrer.meslite.common.exception.NotFoundException;
 import io.github.juanjguerrer.meslite.event.MachineState;
 import io.github.juanjguerrer.meslite.event.MachineStateEventService;
@@ -35,11 +40,13 @@ class MqttInboundHandlerTest {
 
     private final ProductionCountService productionCountService = mock(ProductionCountService.class);
     private final MachineStateEventService stateService = mock(MachineStateEventService.class);
+    private final MqttDeadLetterPublisher deadLetterPublisher = mock(MqttDeadLetterPublisher.class);
     private final MqttInboundHandler handler = new MqttInboundHandler(
         productionCountService,
         stateService,
         Validation.buildDefaultValidatorFactory().getValidator(),
-        JsonMapper.builder().build()
+        JsonMapper.builder().build(),
+        deadLetterPublisher
     );
 
     private static byte[] bytes(String text) {
@@ -67,7 +74,7 @@ class MqttInboundHandlerTest {
         verify(stateService).ingest(eq("line1"), eq("cnc1"), captor.capture());
         assertThat(captor.getValue()).isEqualTo(new CreateStateEventRequest(
             EVENT_ID, MachineState.RUNNING, Instant.parse("2026-10-23T10:00:00Z"), "test"));
-        verifyNoInteractions(productionCountService);
+        verifyNoInteractions(productionCountService, deadLetterPublisher);
     }
 
     @Test
@@ -78,104 +85,155 @@ class MqttInboundHandlerTest {
         verify(productionCountService).ingest(eq("line1"), eq("cnc1"), captor.capture());
         assertThat(captor.getValue()).isEqualTo(new CreateProductionCountRequest(
             EVENT_ID, 10L, 2L, Instant.parse("2026-10-23T10:00:00Z"), Instant.parse("2026-10-23T10:01:00Z")));
-        verifyNoInteractions(stateService);
+        verifyNoInteractions(stateService, deadLetterPublisher);
     }
 
     @Test
-    void rejectsInvalidTopicWithoutTouchingServices() {
-        assertThatThrownBy(() -> handler.handle(bytes(stateJson("RUNNING")), "mes-lite/line1/state"))
-                .isInstanceOf(InvalidMqttMessageException.class);
+    void sendsInvalidTopicToDeadLetterWithoutTouchingServices() {
+        var payload = bytes(stateJson("RUNNING"));
 
+        handler.handle(payload, "mes-lite/line1/state");
+
+        verify(deadLetterPublisher).reject(eq("mes-lite/line1/state"), eq(payload), contains("InvalidMqttMessageException"));
         verifyNoInteractions(stateService, productionCountService);
     }
 
     @Test
-    void rejectsNullTopic() {
-        assertThatThrownBy(() -> handler.handle(bytes(stateJson("RUNNING")), null))
-                .isInstanceOf(InvalidMqttMessageException.class);
+    void sendsNullTopicToDeadLetter() {
+        var payload = bytes(stateJson("RUNNING"));
 
+        handler.handle(payload, null);
+
+        verify(deadLetterPublisher).reject(eq(null), eq(payload), contains("InvalidMqttMessageException"));
         verifyNoInteractions(stateService, productionCountService);
     }
 
     @Test
-    void rejectsEmptyPayload() {
-        assertThatThrownBy(() -> handler.handle(new byte[0], STATE_TOPIC))
-                .isInstanceOf(InvalidMqttMessageException.class)
-                .hasMessageContaining(STATE_TOPIC);
+    void sendsEmptyPayloadToDeadLetter() {
+        var payload = new byte[0];
 
-        verifyNoInteractions(stateService, productionCountService);
-    }
+        handler.handle(payload, STATE_TOPIC);
 
-    @Test
-    void rejectsNullPayload() {
-        assertThatThrownBy(() -> handler.handle(null, STATE_TOPIC))
-                .isInstanceOf(InvalidMqttMessageException.class);
-
+        verify(deadLetterPublisher).reject(eq(STATE_TOPIC), eq(payload), contains(STATE_TOPIC));
         verifyNoInteractions(stateService, productionCountService);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"null", "  null  "})
-    void rejectsJsonNullLiteral(String json) {
-        assertThatThrownBy(() -> handler.handle(bytes(json), STATE_TOPIC))
-                .isInstanceOf(InvalidMqttMessageException.class);
+    void sendsJsonNullLiteralToDeadLetter(String json) {
+        var payload = bytes(json);
 
+        handler.handle(payload, STATE_TOPIC);
+
+        verify(deadLetterPublisher).reject(eq(STATE_TOPIC), eq(payload), contains("InvalidMqttMessageException"));
         verifyNoInteractions(stateService, productionCountService);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"not json", "{", "[1,2,3]", "\"text\"", "{\"eventId\":\"not-a-uuid\"}"})
-    void rejectsMalformedJson(String json) {
-        assertThatThrownBy(() -> handler.handle(bytes(json), STATE_TOPIC))
-                .isInstanceOf(InvalidMqttMessageException.class)
-                .hasMessageContaining("Failed to parse");
+    void sendsMalformedJsonToDeadLetter(String json) {
+        var payload = bytes(json);
 
+        handler.handle(payload, STATE_TOPIC);
+
+        verify(deadLetterPublisher).reject(eq(STATE_TOPIC), eq(payload), contains("Failed to parse"));
         verifyNoInteractions(stateService, productionCountService);
     }
 
     @Test
-    void rejectsUnknownStateValue() {
-        assertThatThrownBy(() -> handler.handle(bytes(stateJson("EXPLODING")), STATE_TOPIC))
-                .isInstanceOf(InvalidMqttMessageException.class);
+    void sendsUnknownStateValueToDeadLetter() {
+        var payload = bytes(stateJson("EXPLODING"));
 
+        handler.handle(payload, STATE_TOPIC);
+
+        verify(deadLetterPublisher).reject(eq(STATE_TOPIC), eq(payload), contains("InvalidMqttMessageException"));
         verifyNoInteractions(stateService);
     }
 
     @Test
-    void rejectsStateEventMissingRequiredFields() {
-        assertThatThrownBy(() -> handler.handle(bytes("{}"), STATE_TOPIC))
-                .isInstanceOf(InvalidMqttMessageException.class)
-                .hasMessageContaining("eventId")
-                .hasMessageContaining("state")
-                .hasMessageContaining("occurredAt");
+    void sendsStateEventMissingRequiredFieldsToDeadLetter() {
+        var payload = bytes("{}");
 
+        handler.handle(payload, STATE_TOPIC);
+
+        var reason = ArgumentCaptor.forClass(String.class);
+        verify(deadLetterPublisher).reject(eq(STATE_TOPIC), eq(payload), reason.capture());
+        assertThat(reason.getValue()).contains("eventId", "state", "occurredAt");
         verifyNoInteractions(stateService);
     }
 
     @Test
-    void rejectsNegativeProductionCounts() {
-        assertThatThrownBy(() -> handler.handle(bytes(productionJson(-1, -2)), PRODUCTION_TOPIC))
-                .isInstanceOf(InvalidMqttMessageException.class)
-                .hasMessageContaining("goodCount")
-                .hasMessageContaining("scrapCount");
+    void sendsNegativeProductionCountsToDeadLetter() {
+        var payload = bytes(productionJson(-1, -2));
 
+        handler.handle(payload, PRODUCTION_TOPIC);
+
+        var reason = ArgumentCaptor.forClass(String.class);
+        verify(deadLetterPublisher).reject(eq(PRODUCTION_TOPIC), eq(payload), reason.capture());
+        assertThat(reason.getValue()).contains("goodCount", "scrapCount");
         verifyNoInteractions(productionCountService);
     }
 
     @Test
-    void rejectsPayloadOfTheOtherMessageType() {
-        assertThatThrownBy(() -> handler.handle(bytes(productionJson(1, 0)), STATE_TOPIC))
-                .isInstanceOf(InvalidMqttMessageException.class);
+    void sendsPayloadOfTheOtherMessageTypeToDeadLetter() {
+        var payload = bytes(productionJson(1, 0));
 
+        handler.handle(payload, STATE_TOPIC);
+
+        verify(deadLetterPublisher).reject(eq(STATE_TOPIC), eq(payload), contains("InvalidMqttMessageException"));
         verifyNoInteractions(stateService, productionCountService);
     }
 
     @Test
-    void domainExceptionsFromServicesPropagateUntouched() {
-        var notFound = NotFoundException.byLineCodeAndMachineCode("LINE1", "CNC1");
-        when(stateService.ingest(any(), any(), any())).thenThrow(notFound);
+    void sendsUnknownMachineToDeadLetter() {
+        var payload = bytes(stateJson("RUNNING"));
+        when(stateService.ingest(any(), any(), any()))
+                .thenThrow(NotFoundException.byLineCodeAndMachineCode("LINE1", "CNC1"));
+
+        handler.handle(payload, STATE_TOPIC);
+
+        verify(deadLetterPublisher).reject(eq(STATE_TOPIC), eq(payload), contains("NotFoundException"));
+    }
+
+    @Test
+    void sendsEventIdConflictToDeadLetter() {
+        var payload = bytes(productionJson(1, 0));
+        when(productionCountService.ingest(any(), any(), any()))
+                .thenThrow(new ConflictException("eventId already exists with different data."));
+
+        handler.handle(payload, PRODUCTION_TOPIC);
+
+        verify(deadLetterPublisher).reject(eq(PRODUCTION_TOPIC), eq(payload), contains("ConflictException"));
+    }
+
+    @Test
+    void sendsBusinessRuleViolationToDeadLetter() {
+        var payload = bytes(stateJson("RUNNING"));
+        when(stateService.ingest(any(), any(), any()))
+                .thenThrow(new BusinessRuleException("occurredAt cannot be in the future"));
+
+        handler.handle(payload, STATE_TOPIC);
+
+        verify(deadLetterPublisher).reject(eq(STATE_TOPIC), eq(payload), contains("BusinessRuleException"));
+    }
+
+    @Test
+    void rethrowsTransientFailuresWithoutDeadLettering() {
+        var failure = new DataAccessResourceFailureException("database down");
+        when(stateService.ingest(any(), any(), any())).thenThrow(failure);
 
         assertThatThrownBy(() -> handler.handle(bytes(stateJson("RUNNING")), STATE_TOPIC))
-                .isSameAs(notFound);
+                .isSameAs(failure);
+
+        verifyNoInteractions(deadLetterPublisher);
+    }
+
+    @Test
+    void rethrowsWhenDeadLetterPublishingFails() {
+        var failure = new IllegalStateException("broker unavailable");
+        doThrow(failure).when(deadLetterPublisher).reject(any(), any(), any());
+
+        assertThatThrownBy(() -> handler.handle(bytes("not json"), STATE_TOPIC))
+                .isSameAs(failure);
     }
 }

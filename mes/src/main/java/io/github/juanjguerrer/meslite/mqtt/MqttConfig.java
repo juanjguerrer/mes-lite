@@ -4,8 +4,10 @@ import org.eclipse.paho.mqttv5.client.MqttConnectionOptions;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.integration.annotation.ServiceActivator;
 import org.springframework.integration.channel.DirectChannel;
 import org.springframework.integration.mqtt.inbound.Mqttv5PahoMessageDrivenChannelAdapter;
+import org.springframework.integration.mqtt.outbound.Mqttv5PahoMessageHandler;
 import org.springframework.messaging.MessageChannel;
 
 @ConditionalOnProperty(prefix = "mes.mqtt", name = "enabled", havingValue = "true")
@@ -35,16 +37,44 @@ public class MqttConfig {
 
     @Bean
     public Mqttv5PahoMessageDrivenChannelAdapter mqttInboundAdapter(
-        MqttConnectionOptions options,
+        MqttConnectionOptions mqttConnectionOptions,
         MessageChannel mqttInputChannel
     ) {
         Mqttv5PahoMessageDrivenChannelAdapter adapter = new Mqttv5PahoMessageDrivenChannelAdapter(
-            options,
+            mqttConnectionOptions,
             properties.clientId(),
             properties.subscriptionTopics().toArray(new String[0])
         );
         adapter.setOutputChannel(mqttInputChannel);
         adapter.setQos(properties.qos());
         return adapter;
+    }
+
+    @Bean
+    public MessageChannel mqttDeadLetterChannel() {
+        return new DirectChannel();
+    }
+
+    @Bean
+    public MqttConnectionOptions mqttDeadLetterConnectionOptions() {
+        MqttConnectionOptions options = new MqttConnectionOptions();
+        options.setAutomaticReconnect(true);
+        options.setServerURIs(new String[]{properties.url()});
+        options.setCleanStart(true);
+        return options;
+    }
+
+    @ServiceActivator(inputChannel = "mqttDeadLetterChannel")
+    @Bean
+    public Mqttv5PahoMessageHandler mqttDeadLetterHandler(
+        MqttConnectionOptions mqttDeadLetterConnectionOptions
+    ) {
+        Mqttv5PahoMessageHandler handler = new Mqttv5PahoMessageHandler(
+            mqttDeadLetterConnectionOptions,
+            properties.clientId() + "-dead-letter"
+        );
+        handler.setDefaultTopic(properties.deadLetterTopic());
+        handler.setDefaultQos(properties.deadLetterQos());
+        return handler;
     }
 }

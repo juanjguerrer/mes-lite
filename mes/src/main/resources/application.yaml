@@ -29,3 +29,4 @@ mes:
     dead-letter-topic: mes-lite/dead-letter
     session-expiry-interval: ${MES_MQTT_SESSION_EXPIRY_INTERVAL:3600}
     qos: ${MES_MQTT_QOS:1}
+    dead-letter-qos: ${MES_MQTT_DEAD_LETTER_QOS:1}
