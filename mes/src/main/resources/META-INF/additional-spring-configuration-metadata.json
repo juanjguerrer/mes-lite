@@ -34,5 +34,23 @@
     "type": "java.lang.String",
     "description": "Topic where rejected messages are published with the reason.",
     "defaultValue": "mes-lite/dead-letter"
+  },
+  {
+    "name": "mes.mqtt.qos",
+    "type": "java.lang.Integer",
+    "description": "QoS (0-2) used when subscribing to the topic filters.",
+    "defaultValue": 1
+  },
+  {
+    "name": "mes.mqtt.dead-letter-qos",
+    "type": "java.lang.Integer",
+    "description": "QoS (0-2) used when publishing rejected messages to the dead-letter topic.",
+    "defaultValue": 1
+  },
+  {
+    "name": "mes.mqtt.session-expiry-interval",
+    "type": "java.lang.Long",
+    "description": "Seconds the broker keeps the MES session (and its queued QoS 1 messages) after a disconnect. 0 ends the session on disconnect.",
+    "defaultValue": 3600
   }
 ]}
