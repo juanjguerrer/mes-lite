@@ -1,0 +1,25 @@
+# cycle_time_ms is the simulated real cycle time per machine, in milliseconds.
+# It is NOT the MES ideal cycle time: values are chosen on purpose above, equal
+# to and below the catalog's ideal to exercise every OEE Performance case.
+# counter_max is the maximum value of the machine's counter, after which it wraps around to 0. It is inclusive, so a counter_max of 65535 means the counter will go from 0 to 65535, then back to 0.
+name = "MES Lite Plant"
+[[lines]]
+name = "Assembly"
+code = "ASM"
+  [[lines.machines]]
+  code = "ROBOT-01"
+  cycle_time_ms = 13000
+  counter_max = 65535
+
+  [[lines.machines]]
+  code = "ROBOT-02"
+  cycle_time_ms = 12000
+  counter_max = 65535
+
+[[lines]]
+name = "Packing"
+code = "PACK"
+  [[lines.machines]]
+  code = "FILLER-01"
+  cycle_time_ms = 1400
+  counter_max = 100
