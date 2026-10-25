@@ -1,12 +1,16 @@
 import re
 import sys
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
+
+from .behavior import InterruptionKind, InterruptionSpec, MachineBehavior
 
 _MISSING = object()
 MAX_COUNTER = 65535
 CODE_RULE = re.compile(r"(?![-_])[A-Z0-9_-]+(?<![-_])")
+# TOML keys under [lines.machines.behavior], one sub-table per kind of interruption.
+_INTERRUPTION_KEYS = {kind.name.lower(): kind for kind in InterruptionKind}
 
 class ConfigError(Exception):
     pass
@@ -16,6 +20,7 @@ class MachineConfig:
     code: str
     cycle_time_ms: int
     counter_max: int = MAX_COUNTER
+    behavior: MachineBehavior = field(default_factory=MachineBehavior)
 
 @dataclass(frozen=True)
 class LineConfig:
@@ -51,7 +56,7 @@ def load_config(path: str) -> PlantConfig:
         for j, machine_data in enumerate(machines_data):
             machine_where = f"{line_where}.machines[{j}]"
             _require_table(machine_data, machine_where)
-            _check_unknown(machine_data, {"code", "cycle_time_ms", "counter_max"}, machine_where)
+            _check_unknown(machine_data, {"code", "cycle_time_ms", "counter_max", "behavior"}, machine_where)
             cycle_time_ms: int = _get(machine_data, "cycle_time_ms", int, machine_where)
             if cycle_time_ms <= 0:
                 raise ConfigError(f"Expected 'cycle_time_ms' to be positive in {machine_where}, got {cycle_time_ms}")
@@ -66,7 +71,8 @@ def load_config(path: str) -> PlantConfig:
             machine = MachineConfig(
                 code=code,
                 cycle_time_ms=cycle_time_ms,
-                counter_max=counter_max
+                counter_max=counter_max,
+                behavior=_parse_behavior(machine_data, machine_where),
             )
             seen_machines[machine.code] = machine_where
             machines.append(machine)
@@ -95,8 +101,46 @@ def _get(table, key : str, expected_type, where, default=_MISSING) -> Any:
     value = table[key]
     bool_invalid = isinstance(value, bool) and expected_type is not bool
     if not isinstance(value, expected_type) or bool_invalid:
-        raise ConfigError(f"Expected '{key}' to be of type {expected_type.__name__} in {where}, got {type(value).__name__}")
+        types = expected_type if isinstance(expected_type, tuple) else (expected_type,)
+        names = " or ".join(t.__name__ for t in types)
+        raise ConfigError(f"Expected '{key}' to be of type {names} in {where}, got {type(value).__name__}")
     return value
+
+def _get_number(table, key: str, where: str, default=_MISSING) -> float:
+    return float(_get(table, key, (int, float), where, default))
+
+def _parse_behavior(machine_data, machine_where: str) -> MachineBehavior:
+    where = f"{machine_where}.behavior"
+    table = _get(machine_data, "behavior", dict, machine_where, default={})
+    _check_unknown(table, {"scrap_rate", "fault_codes", *_INTERRUPTION_KEYS}, where)
+    defaults = MachineBehavior()
+    interruptions = {
+        kind: _parse_interruption(table[key], f"{where}.{key}")
+        for key, kind in _INTERRUPTION_KEYS.items()
+        if key in table
+    }
+    try:
+        return MachineBehavior(
+            scrap_rate=_get_number(table, "scrap_rate", where, default=defaults.scrap_rate),
+            fault_codes=tuple(_get(table, "fault_codes", list, where, default=list(defaults.fault_codes))),
+            interruptions=interruptions,
+        )
+    except ValueError as e:
+        raise ConfigError(f"Invalid behavior in {where}: {e}") from e
+
+def _parse_interruption(table, where: str) -> InterruptionSpec:
+    _require_table(table, where)
+    _check_unknown(table, {"mean_interval_s", "duration_s"}, where)
+    duration = _get(table, "duration_s", list, where)
+    if len(duration) != 2 or not all(isinstance(v, int | float) and not isinstance(v, bool) for v in duration):
+        raise ConfigError(f"Expected 'duration_s' to be a list of two numbers [min, max] in {where}, got {duration}")
+    try:
+        return InterruptionSpec(
+            mean_interval_s=_get_number(table, "mean_interval_s", where),
+            duration_s=(float(duration[0]), float(duration[1])),
+        )
+    except ValueError as e:
+        raise ConfigError(f"Invalid interruption in {where}: {e}") from e
 
 def _check_unknown(table, allowed, where):
     for key in table:

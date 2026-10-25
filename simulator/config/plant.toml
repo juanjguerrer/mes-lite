@@ -2,6 +2,18 @@
 # It is NOT the MES ideal cycle time: values are chosen on purpose above, equal
 # to and below the catalog's ideal to exercise every OEE Performance case.
 # counter_max is the maximum value of the machine's counter, after which it wraps around to 0. It is inclusive, so a counter_max of 65535 means the counter will go from 0 to 65535, then back to 0.
+#
+# [lines.machines.behavior] is optional. Without it a machine runs forever and never produces scrap.
+#   scrap_rate:  probability (0..1) that a finished cycle counts as scrap instead of good.
+#   fault_codes: values FaultCode can take while the machine is faulted (1..65535, never 0).
+# Each optional sub-table below describes one kind of interruption. Both keys are required:
+#   mean_interval_s: average seconds of running before it starts (exponential, so it is random).
+#   duration_s:      [min, max] seconds it lasts (uniform).
+#     fault        -> FaultCode != 0                (collector maps it to DOWN)
+#     idle         -> not running, no fault         (IDLE)
+#     setup        -> Mode = Setup                  (SETUP)
+#     planned_stop -> Mode = PlannedStop            (PLANNED_STOP)
+# Times are deliberately compressed (minutes, not hours) so changes are visible in UaExpert.
 name = "MES Lite Plant"
 [[lines]]
 name = "Assembly"
@@ -11,6 +23,27 @@ code = "ASM"
   cycle_time_ms = 13000
   counter_max = 65535
 
+    [lines.machines.behavior]
+    scrap_rate = 0.04
+    fault_codes = [101, 102, 215]
+
+    [lines.machines.behavior.fault]
+    mean_interval_s = 120
+    duration_s = [15, 40]
+
+    [lines.machines.behavior.idle]
+    mean_interval_s = 60
+    duration_s = [5, 15]
+
+    [lines.machines.behavior.setup]
+    mean_interval_s = 300
+    duration_s = [20, 40]
+
+    [lines.machines.behavior.planned_stop]
+    mean_interval_s = 480
+    duration_s = [20, 40]
+
+  # No behavior on purpose: a steady machine to compare against.
   [[lines.machines]]
   code = "ROBOT-02"
   cycle_time_ms = 12000
@@ -23,3 +56,23 @@ code = "PACK"
   code = "FILLER-01"
   cycle_time_ms = 1400
   counter_max = 100
+
+    [lines.machines.behavior]
+    scrap_rate = 0.02
+    fault_codes = [201, 202, 310]
+
+    [lines.machines.behavior.fault]
+    mean_interval_s = 60
+    duration_s = [8, 20]
+
+    [lines.machines.behavior.idle]
+    mean_interval_s = 35
+    duration_s = [3, 8]
+
+    [lines.machines.behavior.setup]
+    mean_interval_s = 240
+    duration_s = [15, 30]
+
+    [lines.machines.behavior.planned_stop]
+    mean_interval_s = 420
+    duration_s = [15, 30]

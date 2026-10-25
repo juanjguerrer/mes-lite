@@ -5,14 +5,9 @@ from itertools import pairwise
 
 import pytest
 
+from plcsim.behavior import InterruptionKind, InterruptionSpec, MachineBehavior
 from plcsim.config import MAX_COUNTER, MachineConfig
-from plcsim.machine import (
-    InterruptionKind,
-    InterruptionSpec,
-    Machine,
-    MachineBehavior,
-    MachineSnapshot,
-)
+from plcsim.machine import Machine, MachineSnapshot
 from plcsim.states import Mode
 
 START = datetime(2026, 1, 1, 8, 0, 0, tzinfo=UTC)
