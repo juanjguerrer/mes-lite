@@ -1,5 +1,7 @@
 from collections import namedtuple
+
 from asyncua.ua import VariantType
+
 from .states import Mode
 
 Tag = namedtuple("Tag", ["name", "type", "initial"])
