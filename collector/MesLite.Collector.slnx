@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MesLite.Collector/MesLite.Collector.csproj" />
+  </Folder>
+</Solution>

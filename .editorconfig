@@ -1,5 +1,9 @@
 root = true
 
+[*.cs]
+indent_style = space
+indent_size = 4
+
 [*.java]
 indent_style = space
 indent_size = 4
