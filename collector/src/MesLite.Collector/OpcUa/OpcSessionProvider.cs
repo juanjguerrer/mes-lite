@@ -1,4 +1,3 @@
-using System;
 using MesLite.Collector.Configuration;
 using Microsoft.Extensions.Options;
 using Opc.Ua;

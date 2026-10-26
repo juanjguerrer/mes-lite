@@ -3,7 +3,6 @@ using MesLite.Collector.Configuration;
 using MesLite.Collector.OpcUa;
 using Microsoft.Extensions.Options;
 using Opc.Ua;
-using Opc.Ua.Client;
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -23,9 +22,9 @@ builder.Services
     .AddOpcUa()
     .AddClient(opt =>
         {
-            opt.ApplicationName = "MyClient";
-            opt.ApplicationUri = "urn:localhost:MyClient";
-            opt.ProductUri = "uri:example.com:MyClient";
+            opt.ApplicationName = "MesLite.Collector";
+            opt.ApplicationUri = "urn:mes-lite:collector";
+            opt.ProductUri = "uri:mes-lite:collector";
         }
     );
 

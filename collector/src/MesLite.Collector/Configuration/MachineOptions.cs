@@ -1,5 +1,3 @@
-using System;
-
 namespace MesLite.Collector.Configuration;
 
 public class MachineOptions
