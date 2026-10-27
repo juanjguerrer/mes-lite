@@ -483,3 +483,5 @@ $RECYCLE.BIN/
 
 # SQLite store-and-forward
 *.db
+*.db-wal
+*.db-shm

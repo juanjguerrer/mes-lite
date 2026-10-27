@@ -6,6 +6,7 @@ using MesLite.Collector.Mapping;
 using MesLite.Collector.OpcUa;
 using Microsoft.Extensions.Options;
 using Opc.Ua;
+using MesLite.Collector.Storage;
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -36,10 +37,10 @@ builder.Services.AddSingleton(sp => sp.GetRequiredService<Channel<OutboundMessag
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Channel<OutboundMessage>>().Reader);
 
 builder.Services.AddSingleton<TagSubscriber>();
-
+builder.Services.AddSingleton<Outbox>();
 builder.Services.AddHostedService<MappingService>();
 
-builder.Services.AddHostedService<OutboundLogger>();
+builder.Services.AddHostedService<OutboxWriter>();
 
 builder.Services
     .AddSingleton<IValidateOptions<CollectorOptions>, CollectorOptionsValidator>()
