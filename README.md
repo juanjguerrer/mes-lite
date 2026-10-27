@@ -5,7 +5,7 @@
 
 A lightweight **Manufacturing Execution System (MES)** built with Spring Boot and PostgreSQL.
 
-The goal is to track what happens on a shop floor and compute **OEE** (Overall Equipment Effectiveness = availability × performance × quality). The project grows in finished versions: **v0.1** delivered the catalog of production lines and machines, **v0.2** machine state events, and **v0.3** shifts, production counts and the OEE itself, per machine and per line.
+The goal is to track what happens on a shop floor and compute **OEE** (Overall Equipment Effectiveness = availability × performance × quality). The project grows in finished versions: **v0.1** delivered the catalog of production lines and machines, **v0.2** machine state events, **v0.3** shifts, production counts and the OEE itself, per machine and per line, and **v0.4** a simulated plant that feeds the MES over MQTT.
 
 ## Features
 
@@ -30,6 +30,18 @@ The goal is to track what happens on a shop floor and compute **OEE** (Overall E
 - **Production counts**: good and scrap pieces per time interval, reported by line and machine code with the same idempotent ingestion as state events.
 - **OEE** per machine, for a free range or a shift and date, and per line through its **reference machine** (usually the bottleneck).
 
+### Plant simulation chain (v0.4)
+
+```text
+PLC simulator (Python, OPC UA) -> collector (C#) -> Mosquitto (MQTT) -> MES
+```
+
+- **`simulator/`** plays the PLC: an OPC UA server whose machines run, fault, idle, go into setup and stop, each with its own behavior profile.
+- **`collector/`** subscribes to the machine tags and turns their changes into MES events: a state event when the state changes and a production count per window. Events go through a local SQLite outbox, so nothing is lost while the broker or the MES is down (at-least-once delivery).
+- **`mosquitto/`** is the MQTT broker (`docker compose up -d mosquitto`).
+- **The MES** subscribes to `mes-lite/<line>/<machine>/state` and `.../production` when `mes.mqtt.enabled` is true, validates each message like a REST request and sends the ones it rejects to `mes-lite/dead-letter`.
+- **Per-machine sequence**: every event carries a `sequence` number that grows by one per machine, shared by state events and production counts. The MES rejects a reused sequence and reports the missing numbers at `GET /api/machines/{id}/sequence-gaps`, so a lost message can be noticed.
+
 ### Platform
 
 - Consistent errors using **ProblemDetail** (RFC 9457, `application/problem+json`).
@@ -47,6 +59,9 @@ The goal is to track what happens on a shop floor and compute **OEE** (Overall E
 | API docs | springdoc-openapi (Swagger UI) |
 | Tests | JUnit 5, AssertJ, MockMvc, Testcontainers |
 | CI | GitHub Actions |
+| Collector | .NET 10 Worker Service, OPC UA client, SQLite outbox, MQTTnet |
+| Simulator | Python 3.12, asyncua |
+| Messaging | MQTT, Eclipse Mosquitto, Spring Integration (MES side) |
 
 ## Getting started
 
@@ -112,6 +127,18 @@ To start with sample lines, machines, shifts, state events and production counts
 
 Docker must be running: integration tests start a disposable `postgres:18` container, so they never touch your local database.
 
+### 5. Run the whole chain (optional)
+
+The MES also works alone. To feed it from the simulated plant, start each piece in its own terminal:
+
+1. Broker, from the repository root: `docker compose up -d mosquitto`.
+2. MES, from `mes/`, with MQTT on: `MES_MQTT_ENABLED=true ./mvnw spring-boot:run` (the `dev` profile turns it on by default).
+3. Create in the MES the lines and machines the simulator uses (`simulator/config/plant.toml`): line `ASM` with machines `ROBOT-01` and `ROBOT-02`, and line `PACK` with `FILLER-01`. A message for an unknown machine goes to `mes-lite/dead-letter`.
+4. Simulator, from `simulator/`, with its virtual environment active: `python -m plcsim.server`.
+5. Collector, from `collector/`: `dotnet run --project src/MesLite.Collector`.
+
+Events show up in `GET /api/machines/{id}/events` within seconds. See the [collector README](collector/README.md) for its configuration, delivery guarantees and restart behavior.
+
 ## API overview
 
 ### Production lines
@@ -145,8 +172,11 @@ Docker must be running: integration tests start a disposable `postgres:18` conta
 | `GET` | `/api/machines/{id}/state` | Current state; `state` is `null` if the machine has no events |
 | `GET` | `/api/lines/{id}/machines/states` | Current state of every machine in a line |
 | `GET` | `/api/machines/{id}/state-durations?from=&to=` | Milliseconds per state within `[from, to)` (both required, max 31 days) |
+| `GET` | `/api/machines/{id}/sequence-gaps` | Missing sequence numbers between received events (state events and production counts together) |
 
 Times are ISO-8601 instants, e.g. `2026-10-22T08:00:00Z`.
+
+State events and production counts both require a `sequence` (a positive integer). It numbers the events of one machine, counting both kinds together, and a sequence already used by another event of the machine is rejected with `409`. Replaying the same `eventId` with the same data stays idempotent. A gap in `sequence-gaps` is not an error: it can close when a late event arrives, and it only covers numbers between events already received. Events stored before sequences existed have no sequence and are ignored.
 
 ### Shifts
 
@@ -253,7 +283,7 @@ curl -i -X POST http://localhost:8080/api/lines/1/machines \
 Reporting a state change:
 
 ```bash
-curl -i -X POST http://localhost:8080/api/lines/LINE-01/machines/PRS-003/events   -H "Content-Type: application/json"   -d '{"eventId": "3f0c8a2e-5b1d-4c7e-9a41-2d6f0b8e7c19", "state": "DOWN", "occurredAt": "2026-10-22T08:15:00Z", "reason": "Jammed die"}'
+curl -i -X POST http://localhost:8080/api/lines/LINE-01/machines/PRS-003/events   -H "Content-Type: application/json"   -d '{"eventId": "3f0c8a2e-5b1d-4c7e-9a41-2d6f0b8e7c19", "state": "DOWN", "occurredAt": "2026-10-22T08:15:00Z", "reason": "Jammed die", "sequence": 1}'
 ```
 
 Time per state, where the state at `from` comes from the last event before it and time before the machine's first event counts as `unknownMs`:
@@ -286,7 +316,7 @@ Every error uses the same shape:
 |---|---|
 | `400` | Invalid body (field errors listed in `errors`), malformed JSON, unknown sort property, invalid OEE parameter combination |
 | `404` | Line, machine, event, shift or count not found |
-| `409` | Duplicate code, `eventId` reused for different data, or deleting something still referenced (a line with machines or shifts, a machine with events, counts or that is a line's reference) |
+| `409` | Duplicate code, `eventId` reused for different data, a `sequence` already used by another event of the machine, or deleting something still referenced (a line with machines or shifts, a machine with events, counts or that is a line's reference) |
 | `422` | Business rule violated: invalid code format, invalid cycle time, a time more than 5 minutes in the future, an invalid time range, overlapping shifts, or a line without reference machine |
 | `500` | Unexpected error (details are logged, never returned) |
 
@@ -303,8 +333,12 @@ mes/src/main/java/io/github/juanjguerrer/meslite/
   shift/     shifts, overlap rule and shift-to-UTC resolution
   production/ production counts: ingestion and totals
   oee/       OEE calculation and endpoints
+  mqtt/      MQTT inbound adapter, topic parsing and dead-letter publisher
 mes/src/main/resources/db/migration/   Flyway migrations
 mes/src/main/resources/db/seed/        dev-only sample data (repeatable migration)
+collector/                             C# collector: OPC UA subscription, mapping, outbox and MQTT publisher
+simulator/                             Python OPC UA server that plays the PLC
+mosquitto/                             MQTT broker configuration (compose.yaml starts it)
 ```
 
 Each request flows **controller → service → repository**. Controllers only speak DTOs; entities never leave the service layer.
@@ -321,6 +355,8 @@ Each request flows **controller → service → repository**. Controllers only s
 - **Time-dependent rules take a `Clock`**, so tests can fix "now".
 - **Pure functions for the domain math** (`StateDurations`, `ShiftWindow`, `ShiftRules`, `OeeCalculator`): no database or Spring, unit-tested with hand-calculated examples.
 - **Shifts are stored as local `TIME`** and converted with the plant zone only when computing, so daylight-saving changes are handled by `java.time`.
+- **The collector owns the event identity**: `eventId` and `sequence` are assigned by the collector before it stores the event in its outbox, so a resend carries the same values and the MES can discard repeats and spot losses.
+- **MQTT is at-least-once**: the MES treats a replayed message as a no-op, and a message it cannot accept goes to a dead-letter topic instead of blocking the ones behind it.
 - **Known limitation**: the shift overlap check is check-then-insert, so two simultaneous creations could slip an overlap through.
 
 ## Roadmap
@@ -328,7 +364,7 @@ Each request flows **controller → service → repository**. Controllers only s
 - [x] **v0.1** Production line and machine catalog
 - [x] **v0.2** Machine state events (running, idle, down…)
 - [x] **v0.3** Shifts, production counts and OEE
-- [ ] **v0.4** Plant simulation chain: simulated PLC in Python (OPC UA) → collector in C# → MQTT → MES
+- [x] **v0.4** Plant simulation chain: simulated PLC in Python (OPC UA) → collector in C# → MQTT → MES
 - [ ] Later: dashboard and charts
 
 ## License

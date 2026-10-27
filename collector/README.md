@@ -75,6 +75,7 @@ Time values are written as `hh:mm:ss` (`"00:00:10"` is ten seconds).
 | `Tags` | NodeId identifier template for each logical tag, with `{line}` and `{machine}` placeholders | required |
 | `Machines` | `Line` and `Machine` codes (the MES identity) and an optional `CounterMax` | required |
 | `ProductionInterval` | Length of the production window | `00:00:10` |
+| `StateSettleTime` | How long the latest state event of a machine is held before it is published. A new event with the same timestamp replaces it (several tags changing in the same instant); one with a different timestamp publishes the held event at once | `00:00:01` |
 | `OutboxPath` | SQLite file of the outbox | `outbox.db` |
 | `Mqtt.Host`, `Mqtt.Port` | Broker address | `localhost`, `1883` |
 | `Mqtt.ClientId` | MQTT client id | `mes-lite-collector` |
@@ -97,8 +98,13 @@ Topics and payloads follow what the MES MQTT adapter accepts. Timestamps are UTC
 
 | Topic | Payload |
 | --- | --- |
-| `mes-lite/<line>/<machine>/state` | `eventId`, `state`, `occurredAt`, `reason` (optional) |
-| `mes-lite/<line>/<machine>/production` | `eventId`, `goodCount`, `scrapCount`, `intervalStart`, `intervalEnd` |
+| `mes-lite/<line>/<machine>/state` | `eventId`, `state`, `occurredAt`, `reason` (optional), `sequence` |
+| `mes-lite/<line>/<machine>/production` | `eventId`, `goodCount`, `scrapCount`, `intervalStart`, `intervalEnd`, `sequence` |
+
+`sequence` numbers the events of one machine, starting at 1 and counting state and
+production events together. It is assigned when the event is handed to the outbox
+and is stored with it, so after a restart the numbering continues from the highest
+stored value. The MES uses it to reject repeats and to report missing numbers.
 
 ### State
 
@@ -141,7 +147,9 @@ again. Every event carries a unique `eventId` so the receiver can discard repeat
 Not covered yet:
 
 - Events still in memory when the process dies are lost, including the open
-  production window (at most `ProductionInterval` of production).
+  production window (at most `ProductionInterval` of production) and the state
+  event held by `StateSettleTime` (at most that long). Lost events never consume a
+  `sequence`, so they do not show up as gaps in the MES.
 - The mapping state is not persisted. After a restart each machine publishes its
   state again as a baseline, and the counters start from a new baseline, so parts
   produced while the collector was down are not counted.
