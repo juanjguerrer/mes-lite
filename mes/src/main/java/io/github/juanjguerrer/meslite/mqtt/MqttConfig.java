@@ -29,6 +29,7 @@ public class MqttConfig {
         options.setSessionExpiryInterval(properties.sessionExpiryInterval());
         // Should be less than Paho's default of 10
         options.setReceiveMaximum(5);
+        options.setAutomaticReconnectDelay(1000, 5000);
         return options;
     }
 
