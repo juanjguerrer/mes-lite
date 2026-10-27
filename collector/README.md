@@ -168,6 +168,14 @@ The collector does not restart itself: run it under something that restarts it o
 failure, such as `restart: on-failure` in Docker Compose, systemd, or the recovery
 options of a Windows service.
 
+## Upgrading
+
+The outbox schema is created with `CREATE TABLE IF NOT EXISTS` and is not migrated.
+An `outbox.db` created before the per-machine `sequence` was added (v0.4) lacks the
+`line_code`, `machine_code` and `sequence` columns, and the collector fails at
+startup. Delete the file before upgrading; any event still pending in it is lost, so
+let the outbox drain first if that matters.
+
 ## Deployment
 
 The collector is not containerized yet: `compose.yaml` only runs the broker, and the

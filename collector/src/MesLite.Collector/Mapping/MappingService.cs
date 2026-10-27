@@ -181,6 +181,7 @@ public sealed class MappingService(
         }
         catch (OperationCanceledException)
         {
+            logger.LogInformation("Mapping service stopping");
         }
     }
 }
