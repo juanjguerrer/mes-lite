@@ -2,4 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/MesLite.Collector/MesLite.Collector.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MesLite.Collector.Tests/MesLite.Collector.Tests.csproj" />
+  </Folder>
 </Solution>
