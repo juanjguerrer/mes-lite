@@ -27,6 +27,8 @@ public class MqttConfig {
         options.setServerURIs(new String[]{properties.url()});
         options.setCleanStart(false);
         options.setSessionExpiryInterval(properties.sessionExpiryInterval());
+        // Should be less than Paho's default of 10
+        options.setReceiveMaximum(5);
         return options;
     }
 
