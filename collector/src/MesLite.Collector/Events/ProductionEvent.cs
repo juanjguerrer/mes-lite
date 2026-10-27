@@ -5,7 +5,8 @@ public record class ProductionEvent(
     long GoodCount,
     long ScrapCount,
     DateTimeOffset IntervalStart,
-    DateTimeOffset IntervalEnd
+    DateTimeOffset IntervalEnd,
+    long Sequence = 0
 )
 {
 

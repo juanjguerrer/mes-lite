@@ -17,8 +17,12 @@ public sealed class OutboxWriter(
             {
                 try
                 {
-                    await outbox.AddAsync(message, stoppingToken);
-                    logger.LogDebug("{Topic} {Payload}", message.topic, message.payload);
+                    if (!await outbox.AddAsync(message, stoppingToken))
+                    {
+                        logger.LogWarning("Message {EventId} for topic {Topic} was not stored: duplicate event id or sequence.", message.eventId, message.topic);
+                    } else {
+                        logger.LogDebug("{Topic} {Payload}", message.topic, message.payload);
+                    }
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {

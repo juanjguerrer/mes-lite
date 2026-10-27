@@ -55,7 +55,7 @@ public class OutboundMessageTests
 
         using var json = JsonDocument.Parse(message.payload);
         var names = json.RootElement.EnumerateObject().Select(p => p.Name).Order().ToArray();
-        Assert.Equal(["eventId", "occurredAt", "reason", "state"], names);
+        Assert.Equal(["eventId", "occurredAt", "reason", "sequence", "state"], names);
     }
 
     [Fact]
@@ -80,7 +80,29 @@ public class OutboundMessageTests
 
         using var json = JsonDocument.Parse(message.payload);
         var names = json.RootElement.EnumerateObject().Select(p => p.Name).Order().ToArray();
-        Assert.Equal(["eventId", "goodCount", "intervalEnd", "intervalStart", "scrapCount"], names);
+        Assert.Equal(["eventId", "goodCount", "intervalEnd", "intervalStart", "scrapCount", "sequence"], names);
+    }
+
+    [Fact]
+    public void StateMessage_CarriesTheSequenceInThePayloadAndTheEnvelope()
+    {
+        var message = OutboundMessage.From("ASM", "ROBOT-01", new StateEvent(Id, EventState.Idle, At, Sequence: 7));
+
+        using var json = JsonDocument.Parse(message.payload);
+        Assert.Equal(7, json.RootElement.GetProperty("sequence").GetInt64());
+        Assert.Equal(7, message.sequence);
+        Assert.Equal("ASM", message.line);
+        Assert.Equal("ROBOT-01", message.machine);
+    }
+
+    [Fact]
+    public void ProductionMessage_CarriesTheSequenceInThePayloadAndTheEnvelope()
+    {
+        var message = OutboundMessage.From("PACK", "FILLER-01", new ProductionEvent(Id, 3, 1, At.AddSeconds(-10), At, Sequence: 12));
+
+        using var json = JsonDocument.Parse(message.payload);
+        Assert.Equal(12, json.RootElement.GetProperty("sequence").GetInt64());
+        Assert.Equal(12, message.sequence);
     }
 
     [Fact]

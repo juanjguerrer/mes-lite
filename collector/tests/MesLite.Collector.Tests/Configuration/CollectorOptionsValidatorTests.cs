@@ -25,13 +25,15 @@ public class CollectorOptionsValidatorTests
         OpcOptions? opc = null,
         Dictionary<string, string>? tags = null,
         List<MachineOptions>? machines = null,
-        TimeSpan? productionInterval = null) =>
+        TimeSpan? productionInterval = null,
+        TimeSpan? stateSettleTime = null) =>
         new()
         {
             Opc = opc ?? ValidOpc(),
             Tags = tags ?? ValidTags(),
             Machines = machines ?? ValidMachines(),
             ProductionInterval = productionInterval ?? TimeSpan.FromSeconds(10),
+            StateSettleTime = stateSettleTime ?? TimeSpan.FromSeconds(1),
         };
 
     private static ValidateOptionsResult Validate(CollectorOptions options) => Validator.Validate(null, options);
@@ -173,6 +175,22 @@ public class CollectorOptionsValidatorTests
         };
 
         AssertFailsWith(Validate(Options(opc: opc)), "Opc.SamplingInterval must be greater than 0");
+    }
+
+    [Fact]
+    public void Validate_AcceptsAPositiveStateSettleTime()
+    {
+        Assert.True(Validate(Options(stateSettleTime: TimeSpan.FromMilliseconds(500))).Succeeded);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Validate_RejectsANonPositiveStateSettleTime(int seconds)
+    {
+        var options = Options(stateSettleTime: TimeSpan.FromSeconds(seconds));
+
+        AssertFailsWith(Validate(options), "StateSettleTime must be greater than 0");
     }
 
     [Fact]

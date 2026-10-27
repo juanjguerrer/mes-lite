@@ -6,7 +6,8 @@ public record class StateEvent(
     Guid EventId,
     EventState State,
     DateTimeOffset OccurredAt,
-    string? Reason = null
+    string? Reason = null,
+    long Sequence = 0
 )
 {
 

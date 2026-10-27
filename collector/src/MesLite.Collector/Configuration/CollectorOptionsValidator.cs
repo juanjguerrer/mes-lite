@@ -25,6 +25,11 @@ public class CollectorOptionsValidator : IValidateOptions<CollectorOptions>
             errors.Add("ProductionInterval must be greater than 0.");
         }
 
+        if (options.StateSettleTime <= TimeSpan.Zero)
+        {
+            errors.Add("StateSettleTime must be greater than 0.");
+        }
+
         if (string.IsNullOrWhiteSpace(options.OutboxPath))
         {
             errors.Add("OutboxPath is required.");

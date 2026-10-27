@@ -2,6 +2,7 @@ using System.Threading.Channels;
 using MesLite.Collector.Configuration;
 using MesLite.Collector.Events;
 using MesLite.Collector.OpcUa;
+using MesLite.Collector.Storage;
 using Microsoft.Extensions.Options;
 using Opc.Ua;
 
@@ -11,7 +12,8 @@ public sealed class MappingService(
     ChannelReader<TagChange> reader,
     ILogger<MappingService> logger,
     IOptions<CollectorOptions> options,
-    ChannelWriter<OutboundMessage> outbound
+    ChannelWriter<OutboundMessage> outbound,
+    SequenceAllocator sequenceAllocator
 ) : BackgroundService
 {
 
@@ -19,6 +21,7 @@ public sealed class MappingService(
     private readonly Dictionary<(string Line, string Machine, LogicalTag Tag), ushort> _counters = new();
     private readonly Dictionary<(string Line, string Machine), ProductionAccumulator> _accumulators = new();
     private readonly object _gate = new();
+    private readonly StateSettler _stateSettler = new();
 
     private readonly Dictionary<(string Line, string Machine), uint> _counterMax =
         options.Value.Machines.ToDictionary(
@@ -26,7 +29,8 @@ public sealed class MappingService(
             m => m.CounterMax ?? ushort.MaxValue);
 
     protected override Task ExecuteAsync(CancellationToken stoppingToken) =>
-        Task.WhenAll(ReadLoopAsync(stoppingToken), WindowLoopAsync(stoppingToken));
+        Task.WhenAll(ReadLoopAsync(stoppingToken), WindowLoopAsync(stoppingToken),
+        SettleLoopAsync(stoppingToken));
 
     private void HandleCounter(TagChange change, ushort value)
     {
@@ -97,8 +101,19 @@ public sealed class MappingService(
             var stateEvent = tracker.Apply(change);
             if (stateEvent is not null)
             {
-                var message = OutboundMessage.From(change.Line, change.Machine, stateEvent);
-                await outbound.WriteAsync(message, ct);
+                lock (_gate)
+                {
+                    var settled = _stateSettler.Offer(change.Line, change.Machine, stateEvent, DateTimeOffset.UtcNow);
+                    if (settled is not null)
+                    {
+                        var numbered = settled with { Sequence = sequenceAllocator.Next(change.Line, change.Machine) };
+                        var message = OutboundMessage.From(change.Line, change.Machine, numbered);
+                        if (!outbound.TryWrite(message))
+                        {
+                            logger.LogWarning("Failed to write outbound message for {Line}.{Machine}.", change.Line, change.Machine);
+                        }
+                    }
+                }
             }
         }
     }
@@ -123,17 +138,49 @@ public sealed class MappingService(
                             closed.Add((key, production));
                         }
                     }
-                }
-                foreach (var (key, production) in closed)
-                {
-                    var message = OutboundMessage.From(key.Line, key.Machine, production);
-                    await outbound.WriteAsync(message, ct);
+                    foreach (var (key, production) in closed)
+                    {
+                        var productionWithSequence = production with { Sequence = sequenceAllocator.Next(key.Line, key.Machine) };
+                        var message = OutboundMessage.From(key.Line, key.Machine, productionWithSequence);
+                        if (!outbound.TryWrite(message))
+                        {
+                            logger.LogWarning("Failed to write outbound message for {Line}.{Machine}.", key.Line, key.Machine);
+                        }
+                    }
                 }
             }
         }
         catch (OperationCanceledException)
         {
             logger.LogInformation("Mapping service stopping");
+        }
+    }
+    private async Task SettleLoopAsync(CancellationToken ct)
+    {
+        var settleTime = options.Value.StateSettleTime;
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(250));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(ct))
+            {
+                IReadOnlyList<(string Line, string Machine, StateEvent Event)> released;
+                lock (_gate)
+                {
+                    released = _stateSettler.Release(DateTimeOffset.UtcNow, settleTime);
+                    foreach (var (line, machine, stateEvent) in released)
+                    {
+                        var numberedEvent = stateEvent with { Sequence = sequenceAllocator.Next(line, machine) };
+                        var message = OutboundMessage.From(line, machine, numberedEvent);
+                        if (!outbound.TryWrite(message))
+                        {
+                            logger.LogWarning("Failed to write outbound message for {Line}.{Machine}.", line, machine);
+                        }
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
         }
     }
 }

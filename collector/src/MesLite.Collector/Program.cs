@@ -42,6 +42,8 @@ builder.Services.AddHostedService<MappingService>();
 
 builder.Services.AddHostedService<OutboxWriter>();
 builder.Services.AddHostedService<MqttPublisher>();
+builder.Services.AddSingleton(sp => new SequenceAllocator(
+    sp.GetRequiredService<Outbox>().GetLastSequences()));
 builder.Services
     .AddSingleton<IValidateOptions<CollectorOptions>, CollectorOptionsValidator>()
     .AddOptions<CollectorOptions>()
