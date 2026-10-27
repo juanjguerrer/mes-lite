@@ -24,7 +24,7 @@ public class CollectorOptionsValidator : IValidateOptions<CollectorOptions>
             errors.Add("Opc.EndpointUrl is required.");
         }
         else if (!Uri.TryCreate(opc.EndpointUrl, UriKind.Absolute, out var uri)
-                 || uri.Scheme != "opc.tcp")
+                || uri.Scheme != "opc.tcp")
         {
             errors.Add($"Opc.EndpointUrl '{opc.EndpointUrl}' is not a valid opc.tcp URL.");
         }
@@ -32,6 +32,57 @@ public class CollectorOptionsValidator : IValidateOptions<CollectorOptions>
         if (string.IsNullOrWhiteSpace(opc.NamespaceUri))
         {
             errors.Add("Opc.NamespaceUri is required.");
+        }
+
+        if (opc.QueueSize == 0)
+        {
+            errors.Add("Opc.QueueSize must be greater than 0.");
+        }
+
+        if (opc.KeepAliveCount == 0)
+        {
+            errors.Add("Opc.KeepAliveCount must be greater than 0.");
+        }
+
+        if (opc.LifetimeCount == 0)
+        {
+            errors.Add("Opc.LifetimeCount must be greater than 0.");
+        }
+        else if (opc.LifetimeCount < 3 * opc.KeepAliveCount)
+        {
+            errors.Add("Opc.LifetimeCount must be at least 3 times Opc.KeepAliveCount.");
+        }
+
+        // TimeSpan values are written as hh:mm:ss.fff; a bare "250" would be read as 250 days.
+        if (opc.SamplingInterval <= TimeSpan.Zero)
+        {
+            errors.Add("Opc.SamplingInterval must be greater than 0.");
+        }
+
+        if (opc.PublishingInterval <= TimeSpan.Zero)
+        {
+            errors.Add("Opc.PublishingInterval must be greater than 0.");
+        }
+        else if (opc.PublishingInterval > TimeSpan.FromMinutes(1))
+        {
+            errors.Add("Opc.PublishingInterval must not exceed 1 minute.");
+        }
+        else if (opc.SamplingInterval > opc.PublishingInterval)
+        {
+            errors.Add("Opc.SamplingInterval must not exceed Opc.PublishingInterval.");
+        }
+        if (opc.ReconnectInitialDelay <= TimeSpan.Zero)
+        {
+            errors.Add("Opc.ReconnectInitialDelay must be greater than 0.");
+        }
+
+        if (opc.ReconnectMaxDelay < opc.ReconnectInitialDelay)
+        {
+            errors.Add("Opc.ReconnectMaxDelay must not be less than Opc.ReconnectInitialDelay.");
+        }
+        else if (opc.ReconnectMaxDelay > TimeSpan.FromMinutes(5))
+        {
+            errors.Add("Opc.ReconnectMaxDelay must not exceed 5 minutes.");
         }
     }
 

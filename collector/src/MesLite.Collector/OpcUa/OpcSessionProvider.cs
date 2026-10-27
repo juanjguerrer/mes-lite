@@ -23,7 +23,21 @@ public sealed class OpcSessionProvider(
             SecurityPolicyUri = SecurityPolicies.None
         };
         var endpoint = new ConfiguredEndpoint(new ConfiguredEndpointCollection(), description);
-        return await factory.ConnectAsync(endpoint, ct);
+        var opc = options.Value.Opc;
+        return await factory.ConnectAsync(
+            endpoint,
+            builder => builder.WithReconnectPolicy(policy =>
+                policy with
+                {
+                    InitialDelay = opc.ReconnectInitialDelay,
+                    MaxDelay = opc.ReconnectMaxDelay,
+                    MaxRetries = 0,
+                    JitterFactor = 0.1,
+                    MaxTotalReconnectTime = Timeout.InfiniteTimeSpan
+                }
+            ),
+            ct
+        );
     }
 
 }

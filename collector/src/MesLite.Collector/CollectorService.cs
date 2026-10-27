@@ -28,7 +28,7 @@ public sealed class CollectorService(
         }
         logger.LogInformation("Connected to OPC UA server. NamespaceUri '{NamespaceUri}' has index {NamespaceIndex}.", _config.Opc.NamespaceUri, nsIndex);
         await using var subscriber = new TagSubscriber(logger: loggerFactory.CreateLogger<TagSubscriber>());
-        var subscription = subscriber.Subscribe(session, _config.Machines, resolver, (ushort)nsIndex);
+        var subscription = subscriber.Subscribe(session, _config.Machines, resolver, options, (ushort)nsIndex);
         try
         {
             await Task.Delay(Timeout.Infinite, stoppingToken);

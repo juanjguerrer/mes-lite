@@ -1,6 +1,7 @@
 namespace MesLite.Collector.OpcUa;
 
 using MesLite.Collector.Configuration;
+using Microsoft.Extensions.Options;
 using Opc.Ua;
 using Opc.Ua.Client;
 using Opc.Ua.Client.Subscriptions;
@@ -15,6 +16,7 @@ public class TagSubscriber(
         ManagedSession session,
         IReadOnlyList<MachineOptions> machines,
         NodeIdResolver resolver,
+        IOptions<CollectorOptions> config,
         ushort nsIndex
     )
     {
@@ -29,9 +31,9 @@ public class TagSubscriber(
             this,
             new Opc.Ua.Client.Subscriptions.SubscriptionOptions
             {
-                PublishingInterval = TimeSpan.FromSeconds(1),
-                KeepAliveCount = 10,
-                LifetimeCount = 30,
+                PublishingInterval = config.Value.Opc.PublishingInterval,
+                KeepAliveCount = config.Value.Opc.KeepAliveCount,
+                LifetimeCount = config.Value.Opc.LifetimeCount,
                 PublishingEnabled = true
             });
         _subscription = subscription;
@@ -41,8 +43,8 @@ public class TagSubscriber(
             var added = subscription.TryAddMonitoredItem(itemName, nodeId,
                 options => options with
                 {
-                    SamplingInterval = TimeSpan.FromMilliseconds(250),
-                    QueueSize = 10,
+                    SamplingInterval = config.Value.Opc.SamplingInterval,
+                    QueueSize = config.Value.Opc.QueueSize,
                     DiscardOldest = true
                 },
                 out var monitoredItem);
