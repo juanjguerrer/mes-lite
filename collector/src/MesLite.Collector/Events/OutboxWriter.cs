@@ -20,7 +20,8 @@ public sealed class OutboxWriter(
                     if (!await outbox.AddAsync(message, stoppingToken))
                     {
                         logger.LogWarning("Message {EventId} for topic {Topic} was not stored: duplicate event id or sequence.", message.eventId, message.topic);
-                    } else
+                    }
+                    else
                     {
                         logger.LogDebug("{Topic} {Payload}", message.topic, message.payload);
                     }
