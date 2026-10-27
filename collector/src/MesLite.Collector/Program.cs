@@ -41,7 +41,7 @@ builder.Services.AddSingleton<Outbox>();
 builder.Services.AddHostedService<MappingService>();
 
 builder.Services.AddHostedService<OutboxWriter>();
-
+builder.Services.AddHostedService<MqttPublisher>();
 builder.Services
     .AddSingleton<IValidateOptions<CollectorOptions>, CollectorOptionsValidator>()
     .AddOptions<CollectorOptions>()
