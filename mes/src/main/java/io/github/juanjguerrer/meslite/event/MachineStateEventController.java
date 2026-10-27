@@ -100,7 +100,8 @@ public class MachineStateEventController {
     ) {
         return service.stateDurations(id, from, to);
     }
-@   GetMapping("/machines/{id}/sequence-gaps")
+
+    @GetMapping("/machines/{id}/sequence-gaps")
     @Operation(
         summary = "Get the gaps in the event sequence of a machine",
         description = "Missing sequence numbers between received events, counting state events and production counts together. "
