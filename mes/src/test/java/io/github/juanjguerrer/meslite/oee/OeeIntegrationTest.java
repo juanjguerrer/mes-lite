@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -205,12 +206,14 @@ class OeeIntegrationTest {
         count(machine, 735, 15, SHIFT_FROM.plus(hours(4)), SHIFT_TO);               // ends exactly at "to": included
     }
 
+    private final AtomicLong sequence = new AtomicLong();
+
     private void event(Machine machine, MachineState state, Instant occurredAt) {
-        eventRepository.save(new MachineStateEvent(machine, UUID.randomUUID(), state, occurredAt, null));
+        eventRepository.save(new MachineStateEvent(machine, UUID.randomUUID(), state, occurredAt, null, sequence.incrementAndGet()));
     }
 
     private void count(Machine machine, long good, long scrap, Instant start, Instant end) {
-        countRepository.save(new ProductionCount(machine, UUID.randomUUID(), good, scrap, start, end));
+        countRepository.save(new ProductionCount(machine, UUID.randomUUID(), good, scrap, start, end, sequence.incrementAndGet()));
     }
 
     private ResultActions machineOeeByShift(Long machineId, String shiftCode) throws Exception {

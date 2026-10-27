@@ -22,4 +22,5 @@ public interface ProductionCountRepository extends JpaRepository<ProductionCount
                                         @Param("from") Instant from,
                                         @Param("to") Instant to);
     Optional<ProductionCount> findByEventId(UUID eventId);
+    boolean existsByMachineIdAndSequence(Long machineId, Long sequence);
 }

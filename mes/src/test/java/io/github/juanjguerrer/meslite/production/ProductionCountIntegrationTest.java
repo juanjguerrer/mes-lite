@@ -12,6 +12,7 @@ import static org.hamcrest.Matchers.matchesPattern;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -134,6 +135,24 @@ class ProductionCountIntegrationTest {
     }
 
     @Test
+    void sequenceAlreadyUsedByAnotherCountReturns409() throws Exception {
+        ingest("LINE-01", "PRS-003", body(UUID.randomUUID(), 95, 5, T0800, T0900)).andExpect(status().isCreated());
+
+        ingest("LINE-01", "PRS-003", body(UUID.randomUUID(), 40, 2, T0900, T1000))
+            .andExpect(status().isConflict());
+
+        assertThat(countRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    void sameSequenceOnAnotherMachineIsAccepted() throws Exception {
+        ingest("LINE-01", "PRS-003", body(UUID.randomUUID(), 95, 5, T0800, T0900)).andExpect(status().isCreated());
+        ingest("LINE-01", "LBL-001", body(UUID.randomUUID(), 95, 5, T0800, T0900)).andExpect(status().isCreated());
+
+        assertThat(countRepository.count()).isEqualTo(2);
+    }
+
+    @Test
     void returns404ForUnknownMachine() throws Exception {
         ingest("LINE-01", "XXX-999", body(UUID.randomUUID(), 1, 0, T0800, T0900))
             .andExpect(status().isNotFound());
@@ -173,7 +192,18 @@ class ProductionCountIntegrationTest {
             .andExpect(jsonPath("$.errors.goodCount").exists())
             .andExpect(jsonPath("$.errors.scrapCount").exists())
             .andExpect(jsonPath("$.errors.intervalStart").exists())
-            .andExpect(jsonPath("$.errors.intervalEnd").exists());
+            .andExpect(jsonPath("$.errors.intervalEnd").exists())
+            .andExpect(jsonPath("$.errors.sequence").exists());
+    }
+
+    @Test
+    void reusedEventIdWithDifferentSequenceReturns409() throws Exception {
+        UUID eventId = UUID.randomUUID();
+
+        ingest("LINE-01", "PRS-003", body(eventId, 95, 5, T0800, T0900)).andExpect(status().isCreated());
+
+        ingest("LINE-01", "PRS-003", body(eventId, 95, 5, T0800, T0900).replace("\"sequence\": 1", "\"sequence\": 2"))
+            .andExpect(status().isConflict());
     }
 
     @Test
@@ -256,13 +286,15 @@ class ProductionCountIntegrationTest {
             .param("to", to.toString()));
     }
 
+    private final AtomicLong sequence = new AtomicLong();
+
     private void save(Machine machine, long good, long scrap, Instant start, Instant end) {
-        countRepository.save(new ProductionCount(machine, UUID.randomUUID(), good, scrap, start, end));
+        countRepository.save(new ProductionCount(machine, UUID.randomUUID(), good, scrap, start, end, sequence.incrementAndGet()));
     }
 
     private static String body(UUID eventId, long good, long scrap, Instant start, Instant end) {
         return """
-            {"eventId": "%s", "goodCount": %d, "scrapCount": %d, "intervalStart": "%s", "intervalEnd": "%s"}
+            {"eventId": "%s", "goodCount": %d, "scrapCount": %d, "intervalStart": "%s", "intervalEnd": "%s", "sequence": 1}
             """.formatted(eventId, good, scrap, start, end);
     }
 }

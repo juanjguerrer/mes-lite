@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 
 public record CreateProductionCountRequest(
@@ -11,5 +12,6 @@ public record CreateProductionCountRequest(
     @NotNull @PositiveOrZero Long goodCount,
     @NotNull @PositiveOrZero Long scrapCount,
     @NotNull Instant intervalStart,
-    @NotNull Instant intervalEnd
+    @NotNull Instant intervalEnd,
+    @NotNull @Positive Long sequence
 ) { }

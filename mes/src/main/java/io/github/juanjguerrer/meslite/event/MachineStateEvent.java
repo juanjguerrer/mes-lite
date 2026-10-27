@@ -47,12 +47,13 @@ public class MachineStateEvent {
     @Column(updatable = false)
     private Long sequence;
 
-    public MachineStateEvent(Machine machine, UUID eventId, MachineState state, Instant occurredAt, String reason) {
+    public MachineStateEvent(Machine machine, UUID eventId, MachineState state, Instant occurredAt, String reason, Long sequence) {
         this.machine = machine;
         this.eventId = eventId;
         this.state = state;
         this.occurredAt = occurredAt;
         this.reason = reason;
+        this.sequence = sequence;
     }
 
     protected MachineStateEvent() {

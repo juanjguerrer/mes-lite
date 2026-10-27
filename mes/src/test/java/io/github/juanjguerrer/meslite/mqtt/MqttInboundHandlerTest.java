@@ -55,14 +55,14 @@ class MqttInboundHandlerTest {
 
     private static String stateJson(String state) {
         return """
-            {"eventId":"%s","state":"%s","occurredAt":"2026-10-23T10:00:00Z","reason":"test"}
+            {"eventId":"%s","state":"%s","occurredAt":"2026-10-23T10:00:00Z","reason":"test","sequence":1}
             """.formatted(EVENT_ID, state);
     }
 
     private static String productionJson(long good, long scrap) {
         return """
             {"eventId":"%s","goodCount":%d,"scrapCount":%d,
-             "intervalStart":"2026-10-23T10:00:00Z","intervalEnd":"2026-10-23T10:01:00Z"}
+             "intervalStart":"2026-10-23T10:00:00Z","intervalEnd":"2026-10-23T10:01:00Z","sequence":1}
             """.formatted(EVENT_ID, good, scrap);
     }
 
@@ -73,7 +73,7 @@ class MqttInboundHandlerTest {
         var captor = ArgumentCaptor.forClass(CreateStateEventRequest.class);
         verify(stateService).ingest(eq("line1"), eq("cnc1"), captor.capture());
         assertThat(captor.getValue()).isEqualTo(new CreateStateEventRequest(
-            EVENT_ID, MachineState.RUNNING, Instant.parse("2026-10-23T10:00:00Z"), "test"));
+            EVENT_ID, MachineState.RUNNING, Instant.parse("2026-10-23T10:00:00Z"), "test", 1L));
         verifyNoInteractions(productionCountService, deadLetterPublisher);
     }
 
@@ -84,7 +84,7 @@ class MqttInboundHandlerTest {
         var captor = ArgumentCaptor.forClass(CreateProductionCountRequest.class);
         verify(productionCountService).ingest(eq("line1"), eq("cnc1"), captor.capture());
         assertThat(captor.getValue()).isEqualTo(new CreateProductionCountRequest(
-            EVENT_ID, 10L, 2L, Instant.parse("2026-10-23T10:00:00Z"), Instant.parse("2026-10-23T10:01:00Z")));
+            EVENT_ID, 10L, 2L, Instant.parse("2026-10-23T10:00:00Z"), Instant.parse("2026-10-23T10:01:00Z"), 1L));
         verifyNoInteractions(stateService, deadLetterPublisher);
     }
 

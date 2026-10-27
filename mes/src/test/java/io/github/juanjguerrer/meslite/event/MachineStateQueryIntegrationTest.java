@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.Instant;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -189,7 +190,9 @@ class MachineStateQueryIntegrationTest {
             .andExpect(status().isNotFound());
     }
 
+    private final AtomicLong sequence = new AtomicLong();
+
     private void save(Machine machine, MachineState state, Instant occurredAt) {
-        eventRepository.save(new MachineStateEvent(machine, UUID.randomUUID(), state, occurredAt, null));
+        eventRepository.save(new MachineStateEvent(machine, UUID.randomUUID(), state, occurredAt, null, sequence.incrementAndGet()));
     }
 }

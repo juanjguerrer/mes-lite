@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,6 +25,7 @@ import io.github.juanjguerrer.meslite.common.exception.NotFoundException;
 import io.github.juanjguerrer.meslite.common.query.TimeRanges;
 import io.github.juanjguerrer.meslite.event.dto.CreateStateEventRequest;
 import io.github.juanjguerrer.meslite.event.dto.MachineCurrentStateResponse;
+import io.github.juanjguerrer.meslite.event.dto.SequenceGapsResponse;
 import io.github.juanjguerrer.meslite.event.dto.StateDurationsResponse;
 import io.github.juanjguerrer.meslite.event.dto.StateEventResponse;
 import io.github.juanjguerrer.meslite.event.projection.MachineStateRow;
@@ -64,16 +66,34 @@ public class MachineStateEventService {
         EventTimeRules.validateOccurredAt(clock, occurredAt);
         var existingEvent = repository.findByEventId(request.eventId());
         if (existingEvent.isPresent()) {
-            return replay(existingEvent.get(), machine, request.state(), occurredAt);
+            return replay(existingEvent.get(), machine, request.state(), occurredAt, request.sequence());
         }
-        var event = new MachineStateEvent(machine, request.eventId(), request.state(), occurredAt, request.reason());
+        var existsByMachineIdAndSeq = repository.existsByMachineIdAndSequence(machine.getId(), request.sequence());
+        if (existsByMachineIdAndSeq) {
+            throw new ConflictException("Sequence " + request.sequence() + " was already used for machine " + machine.getCode());
+        }
+        var event = new MachineStateEvent(machine, request.eventId(), request.state(), occurredAt, request.reason(), request.sequence());
         try {
             return new IngestResult(StateEventResponse.from(repository.save(event)), true);
         } catch (DataIntegrityViolationException e) {
             var concurrentEvent = repository.findByEventId(request.eventId())
-            .orElseThrow(() -> e);
-            return replay(concurrentEvent, machine, request.state(), occurredAt);
+            .orElseThrow(() -> toConflictOrOriginal(e, machine, request.sequence()));
+            return replay(concurrentEvent, machine, request.state(), occurredAt, request.sequence());
         }
+    }
+
+    private RuntimeException toConflictOrOriginal(DataIntegrityViolationException e, Machine machine, Long sequence)
+    {
+        for (Throwable cause = e; cause != null; cause = cause.getCause())
+        {
+            if (cause instanceof ConstraintViolationException violation
+                && violation.getConstraintName() != null
+                && violation.getConstraintName().toLowerCase(Locale.ROOT)
+                    .contains("uq_machine_state_events_machine_id_sequence")) {
+                return new ConflictException("Sequence " + sequence + " was already used for machine " + machine.getCode());
+            }
+        }
+        return e;
     }
 
     @Transactional(readOnly = true)
@@ -137,8 +157,8 @@ public class MachineStateEventService {
             .orElseThrow(() -> NotFoundException.byId("Machine state event", id));
     }
 
-    private IngestResult replay(MachineStateEvent existing, Machine machine, MachineState state, Instant occurredAt) {
-        if (!existing.describesSameFact(machine, state, occurredAt, existing.getSequence())) {
+    private IngestResult replay(MachineStateEvent existing, Machine machine, MachineState state, Instant occurredAt, Long sequence) {
+        if (!existing.describesSameFact(machine, state, occurredAt, sequence)) {
             throw new ConflictException("eventId " + existing.getEventId() + " was already used for a different event");
         }
         return new IngestResult(StateEventResponse.from(existing), false);
@@ -221,5 +241,17 @@ public class MachineStateEventService {
             durationsMs,
             unknownMs
         );
+    }
+
+    @Transactional(readOnly = true)
+    public SequenceGapsResponse sequenceGaps(Long machineId) {
+        if (!machineRepository.existsById(machineId)) {
+            throw NotFoundException.byId("Machine", machineId);
+        }
+        var gaps = repository.findSequenceGaps(machineId).stream()
+            .map(row -> new SequenceGapsResponse.Gap(row.getFromSequence(), row.getToSequence(), row.getMissing()))
+            .toList();
+        long totalMissing = gaps.stream().mapToLong(SequenceGapsResponse.Gap::missing).sum();
+        return new SequenceGapsResponse(machineId, totalMissing, gaps);
     }
 }

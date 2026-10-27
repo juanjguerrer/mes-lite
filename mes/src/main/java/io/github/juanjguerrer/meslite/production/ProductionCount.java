@@ -54,13 +54,14 @@ public class ProductionCount {
         // Default constructor for JPA
     }
 
-    public ProductionCount(Machine machine, UUID eventId, long goodCount, long scrapCount, Instant intervalStart, Instant intervalEnd) {
+    public ProductionCount(Machine machine, UUID eventId, long goodCount, long scrapCount, Instant intervalStart, Instant intervalEnd, Long sequence) {
         this.machine = machine;
         this.eventId = eventId;
         this.goodCount = goodCount;
         this.scrapCount = scrapCount;
         this.intervalStart = intervalStart;
         this.intervalEnd = intervalEnd;
+        this.sequence = sequence;
     }
 
     public boolean describesSameFact(Machine machine, long goodCount, long scrapCount, Instant intervalStart, Instant intervalEnd, Long sequence) {

@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import io.github.juanjguerrer.meslite.event.projection.MachineStateRow;
+import io.github.juanjguerrer.meslite.event.projection.SequenceGapRow;
 import io.github.juanjguerrer.meslite.event.projection.StateDurationRow;
 
 public interface MachineStateEventRepository
@@ -89,4 +90,30 @@ public interface MachineStateEventRepository
         @Param("from") Instant from,
         @Param("to") Instant to
     );
+
+    boolean existsByMachineIdAndSequence(Long machineId, Long sequence);
+
+        @Query(value = """
+        WITH sequences AS (
+            SELECT sequence FROM machine_state_events
+            WHERE machine_id = :machineId AND sequence IS NOT NULL
+            UNION ALL
+            SELECT sequence FROM production_counts
+            WHERE machine_id = :machineId AND sequence IS NOT NULL
+        ),
+        with_next AS (
+            SELECT
+                sequence AS from_sequence,
+                LEAD(sequence) OVER (ORDER BY sequence) AS to_sequence
+            FROM sequences
+        )
+        SELECT
+            from_sequence AS "fromSequence",
+            to_sequence AS "toSequence",
+            to_sequence - from_sequence - 1 AS "missing"
+        FROM with_next
+        WHERE to_sequence - from_sequence > 1
+        ORDER BY from_sequence
+        """, nativeQuery = true)
+    List<SequenceGapRow> findSequenceGaps(@Param("machineId") Long machineId);
 }

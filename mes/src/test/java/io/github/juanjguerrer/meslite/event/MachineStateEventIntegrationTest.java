@@ -173,7 +173,26 @@ class MachineStateEventIntegrationTest {
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.errors.eventId").exists())
             .andExpect(jsonPath("$.errors.state").exists())
-            .andExpect(jsonPath("$.errors.occurredAt").exists());
+            .andExpect(jsonPath("$.errors.occurredAt").exists())
+            .andExpect(jsonPath("$.errors.sequence").exists());
+    }
+
+    @Test
+    void reusedEventIdWithDifferentSequenceReturns409() throws Exception {
+        UUID eventId = UUID.randomUUID();
+        Instant occurredAt = hoursAgo(1);
+
+        ingest("LINE-01", "PRS-003", body(eventId, "DOWN", occurredAt, null)).andExpect(status().isCreated());
+
+        ingest("LINE-01", "PRS-003", body(eventId, "DOWN", occurredAt, null).replace("\"sequence\": 1", "\"sequence\": 2"))
+            .andExpect(status().isConflict());
+    }
+
+    @Test
+    void returns400ForNonPositiveSequence() throws Exception {
+        ingest("LINE-01", "PRS-003", body(UUID.randomUUID(), "DOWN", hoursAgo(1), null).replace("\"sequence\": 1", "\"sequence\": 0"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.errors.sequence").exists());
     }
 
     @Test
@@ -181,6 +200,28 @@ class MachineStateEventIntegrationTest {
         ingest("LINE-01", "PRS-003", body(UUID.randomUUID(), "DOWN", hoursAgo(1), "x".repeat(256)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.errors.reason").exists());
+    }
+
+    @Test
+    void sequenceAlreadyUsedByAnotherEventReturns409() throws Exception {
+        Instant occurredAt = hoursAgo(1);
+
+        ingest("LINE-01", "PRS-003", body(UUID.randomUUID(), "DOWN", occurredAt, null)).andExpect(status().isCreated());
+
+        ingest("LINE-01", "PRS-003", body(UUID.randomUUID(), "RUNNING", occurredAt, null))
+            .andExpect(status().isConflict());
+
+        assertThat(eventRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    void sameSequenceOnAnotherMachineIsAccepted() throws Exception {
+        Instant occurredAt = hoursAgo(1);
+
+        ingest("LINE-01", "PRS-003", body(UUID.randomUUID(), "DOWN", occurredAt, null)).andExpect(status().isCreated());
+        ingest("LINE-01", "LBL-001", body(UUID.randomUUID(), "DOWN", occurredAt, null)).andExpect(status().isCreated());
+
+        assertThat(eventRepository.count()).isEqualTo(2);
     }
 
     @Test
@@ -209,7 +250,7 @@ class MachineStateEventIntegrationTest {
     private static String body(UUID eventId, String state, Object occurredAt, String reason) {
         String reasonJson = reason == null ? "null" : "\"" + reason + "\"";
         return """
-            {"eventId": "%s", "state": "%s", "occurredAt": "%s", "reason": %s}
+            {"eventId": "%s", "state": "%s", "occurredAt": "%s", "reason": %s, "sequence": 1}
             """.formatted(eventId, state, occurredAt, reasonJson);
     }
 

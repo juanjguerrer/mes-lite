@@ -22,6 +22,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import io.github.juanjguerrer.meslite.event.dto.CreateStateEventRequest;
 import io.github.juanjguerrer.meslite.event.dto.MachineCurrentStateResponse;
+import io.github.juanjguerrer.meslite.event.dto.SequenceGapsResponse;
 import io.github.juanjguerrer.meslite.event.dto.StateDurationsResponse;
 import io.github.juanjguerrer.meslite.event.dto.StateEventResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -98,5 +99,14 @@ public class MachineStateEventController {
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to
     ) {
         return service.stateDurations(id, from, to);
+    }
+@   GetMapping("/machines/{id}/sequence-gaps")
+    @Operation(
+        summary = "Get the gaps in the event sequence of a machine",
+        description = "Missing sequence numbers between received events, counting state events and production counts together. "
+            + "A gap can close when a late event arrives; events stored before sequences existed are ignored."
+    )
+    public SequenceGapsResponse sequenceGaps(@PathVariable Long id) {
+        return service.sequenceGaps(id);
     }
 }

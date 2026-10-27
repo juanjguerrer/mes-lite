@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -171,8 +172,10 @@ class StateDurationsParityTest {
         return java;
     }
 
+    private final AtomicLong sequence = new AtomicLong();
+
     private void save(MachineState state, Instant occurredAt) {
-        eventRepository.save(new MachineStateEvent(press, UUID.randomUUID(), state, occurredAt, null));
+        eventRepository.save(new MachineStateEvent(press, UUID.randomUUID(), state, occurredAt, null, sequence.incrementAndGet()));
     }
 
     private static long minutes(long minutes) {

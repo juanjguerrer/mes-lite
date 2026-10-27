@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -70,22 +71,40 @@ public class ProductionCountService {
         EventTimeRules.validateOccurredAt(clock, to);
         var existing = repository.findByEventId(request.eventId());
         if (existing.isPresent()) {
-            return replay(existing.get(), machine, request.goodCount(), request.scrapCount(), from, to);
+            return replay(existing.get(), machine, request.goodCount(), request.scrapCount(), from, to, request.sequence());
         }
-        var count = new ProductionCount(machine, request.eventId(), request.goodCount(), request.scrapCount(), from, to);
+        var existsByMachineIdAndSeq = repository.existsByMachineIdAndSequence(machine.getId(), request.sequence());
+        if (existsByMachineIdAndSeq) {
+            throw new ConflictException("Sequence " + request.sequence() + " was already used for machine " + machine.getCode());
+        }
+        var count = new ProductionCount(machine, request.eventId(), request.goodCount(), request.scrapCount(), from, to, request.sequence());
         try {
             return new IngestResult(ProductionCountResponse.from(repository.save(count)), true);
         } catch (DataIntegrityViolationException e) {
             var concurrentCount = repository.findByEventId(request.eventId())
-            .orElseThrow(() -> e);
-            return replay(concurrentCount, machine, request.goodCount(), request.scrapCount(), from, to);
+            .orElseThrow(() -> toConflictOrOriginal(e, machine, request.sequence()));
+            return replay(concurrentCount, machine, request.goodCount(), request.scrapCount(), from, to, request.sequence());
         }
     }
 
+    private RuntimeException toConflictOrOriginal(DataIntegrityViolationException e, Machine machine, Long sequence)
+    {
+        for (Throwable cause = e; cause != null; cause = cause.getCause())
+        {
+            if (cause instanceof ConstraintViolationException violation
+                && violation.getConstraintName() != null
+                && violation.getConstraintName().toLowerCase(Locale.ROOT)
+                    .contains("uq_production_counts_machine_id_sequence")) {
+                return new ConflictException("Sequence " + sequence + " was already used for machine " + machine.getCode());
+            }
+        }
+        return e;
+    }
+
     private IngestResult replay(ProductionCount existing, Machine machine,
-        Long goodCount, Long scrapCount, Instant from, Instant to
+        Long goodCount, Long scrapCount, Instant from, Instant to, Long sequence
     ) {
-        if (!existing.describesSameFact(machine, goodCount, scrapCount, from, to, existing.getSequence())) {
+        if (!existing.describesSameFact(machine, goodCount, scrapCount, from, to, sequence)) {
             throw new ConflictException("eventId " + existing.getEventId() + " already exists with different data.");
         }
         return new IngestResult(ProductionCountResponse.from(existing), false);

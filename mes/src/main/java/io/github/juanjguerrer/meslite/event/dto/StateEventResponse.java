@@ -13,7 +13,8 @@ public record StateEventResponse(
     MachineState state,
     Instant occurredAt,
     Instant receivedAt,
-    String reason
+    String reason,
+    Long sequence
 ) {
     public static StateEventResponse from(MachineStateEvent event) {
         return new StateEventResponse(
@@ -23,7 +24,8 @@ public record StateEventResponse(
             event.getState(),
             event.getOccurredAt(),
             event.getReceivedAt(),
-            event.getReason()
+            event.getReason(),
+            event.getSequence()
         );
     }
 }

@@ -17,14 +17,14 @@ class InvalidMqttMessageExceptionTest {
 
     @Test
     void failedValidationListsEveryViolationSortedByField() {
-        var request = new CreateProductionCountRequest(null, -1L, null, null, null);
+        var request = new CreateProductionCountRequest(null, -1L, null, null, null, 0L);
         Set<ConstraintViolation<CreateProductionCountRequest>> violations = validator.validate(request);
 
         var exception = InvalidMqttMessageException.failedValidation(violations);
 
         assertThat(exception.getMessage())
                 .startsWith("Invalid MQTT message: ")
-                .containsSubsequence("eventId", "goodCount", "intervalEnd", "intervalStart", "scrapCount");
+                .containsSubsequence("eventId", "goodCount", "intervalEnd", "intervalStart", "scrapCount", "sequence");
     }
 
     @Test
