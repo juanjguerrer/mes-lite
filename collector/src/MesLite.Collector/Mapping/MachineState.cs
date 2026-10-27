@@ -6,5 +6,6 @@ public enum MachineState
     Idle,
     Down,
     Setup,
-    PlannedStop
+    PlannedStop,
+    Unknown
 }
