@@ -1,6 +1,7 @@
 using System.Threading.Channels;
 using MesLite.Collector;
 using MesLite.Collector.Configuration;
+using MesLite.Collector.Events;
 using MesLite.Collector.Mapping;
 using MesLite.Collector.OpcUa;
 using Microsoft.Extensions.Options;
@@ -21,9 +22,24 @@ builder.Services.AddSingleton(sp => sp.GetRequiredService<Channel<TagChange>>().
 
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Channel<TagChange>>().Reader);
 
+builder.Services
+    .AddSingleton(
+        _ => Channel.CreateUnbounded<OutboundMessage>(
+            new UnboundedChannelOptions
+            {
+                SingleReader = true,
+                SingleWriter = false
+            }));
+
+builder.Services.AddSingleton(sp => sp.GetRequiredService<Channel<OutboundMessage>>().Writer);
+
+builder.Services.AddSingleton(sp => sp.GetRequiredService<Channel<OutboundMessage>>().Reader);
+
 builder.Services.AddSingleton<TagSubscriber>();
 
 builder.Services.AddHostedService<MappingService>();
+
+builder.Services.AddHostedService<OutboundLogger>();
 
 builder.Services
     .AddSingleton<IValidateOptions<CollectorOptions>, CollectorOptionsValidator>()

@@ -1,5 +1,6 @@
 using System.Threading.Channels;
 using MesLite.Collector.Configuration;
+using MesLite.Collector.Events;
 using MesLite.Collector.OpcUa;
 using Microsoft.Extensions.Options;
 using Opc.Ua;
@@ -9,120 +10,35 @@ namespace MesLite.Collector.Mapping;
 public sealed class MappingService(
     ChannelReader<TagChange> reader,
     ILogger<MappingService> logger,
-    IOptions<CollectorOptions> options
+    IOptions<CollectorOptions> options,
+    ChannelWriter<OutboundMessage> outbound
 ) : BackgroundService
 {
-    private readonly Dictionary<(string Line, string Machine), MachineSnapshot> _machines = new();
+
+    private readonly Dictionary<(string Line, string Machine), MachineStateTracker> _trackers = new();
+    private readonly Dictionary<(string Line, string Machine, LogicalTag Tag), ushort> _counters = new();
+    private readonly Dictionary<(string Line, string Machine), ProductionAccumulator> _accumulators = new();
+    private readonly object _gate = new();
 
     private readonly Dictionary<(string Line, string Machine), uint> _counterMax =
         options.Value.Machines.ToDictionary(
             m => (m.Line!, m.Machine!),
             m => m.CounterMax ?? ushort.MaxValue);
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override Task ExecuteAsync(CancellationToken stoppingToken) =>
+        Task.WhenAll(ReadLoopAsync(stoppingToken), WindowLoopAsync(stoppingToken));
+
+    private void HandleCounter(TagChange change, ushort value)
     {
-        await foreach (var change in reader.ReadAllAsync(stoppingToken))
+        var counterKey = (change.Line, change.Machine, change.Tag);
+        if (!_counters.TryGetValue(counterKey, out var previous))
         {
-            if (string.IsNullOrWhiteSpace(change.Line) ||
-                string.IsNullOrWhiteSpace(change.Machine))
-            {
-                logger.LogWarning("Tag change has no line or machine.");
-                continue;
-            }
-            var key = (change.Line, change.Machine);
-            if (!_machines.TryGetValue(key, out var snapshot))
-            {
-                snapshot = new MachineSnapshot();
-                _machines.Add(key, snapshot);
-            }
-            if (StatusCode.IsBad(change.StatusCode))
-            {
-                logger.LogWarning(
-                    "Tag change for {Line}.{Machine} has bad status code {StatusCode}.",
-                    change.Line,
-                    change.Machine,
-                    change.StatusCode
-                );
-                if (change.Tag is LogicalTag.Running or LogicalTag.FaultCode or LogicalTag.Mode)
-                {
-                    snapshot.Seen.Remove(change.Tag);
-                    if (snapshot.LastState != MachineState.Unknown)
-                    {
-                        logger.LogInformation(
-                            "Machine {Line}.{Machine} state: Unknown (tag {Tag} has bad status code).",
-                            change.Line, change.Machine, change.Tag);
-                        snapshot.LastState = MachineState.Unknown;
-                    }
-                }
-                continue;
-            }
-            if (change.Generation > snapshot.Generation)
-            {
-                snapshot.Generation = change.Generation;
-                snapshot.Seen.Clear();
-                snapshot.Recovering = snapshot.LastState.HasValue;
-            }
-            switch (change.Tag)
-            {
-                case LogicalTag.Running:
-                    if (change.Value is bool running)
-                        snapshot.IsRunning = running;
-                    break;
-
-                case LogicalTag.FaultCode:
-                    if (change.Value is ushort faultCode)
-                        snapshot.FaultCode = faultCode;
-                    break;
-
-                case LogicalTag.Mode:
-                    if (change.Value is ushort mode &&
-                        Enum.IsDefined(typeof(MachineMode), mode))
-                    {
-                        snapshot.Mode = (MachineMode)mode;
-                    }
-                    break;
-                case LogicalTag.GoodCounter:
-                case LogicalTag.ScrapCounter:
-                    if (change.Value is ushort counter)
-                        HandleCounter(change, snapshot, counter);
-                    break;
-            }
-            snapshot.Seen.Add(change.Tag);
-            if (!snapshot.Seen.Contains(LogicalTag.Running) ||
-                !snapshot.Seen.Contains(LogicalTag.FaultCode) ||
-                !snapshot.Seen.Contains(LogicalTag.Mode))
-            {
-                continue;
-            }
-            var state = StateMapper.Map(
-                snapshot.IsRunning!.Value,
-                snapshot.FaultCode!.Value,
-                snapshot.Mode!.Value
-            );
-            if (state == snapshot.LastState)
-            {
-                snapshot.Recovering = false;
-                continue;
-            }
-            logger.LogInformation(
-                "Machine {Line}.{Machine} state: {State}{Recovered}",
-                change.Line, change.Machine, state,
-                snapshot.Recovering ? " (recovered, time approximate)" : "");
-            snapshot.LastState = state;
-            snapshot.Recovering = false;
-        }
-    }
-
-    private void HandleCounter(TagChange change, MachineSnapshot snapshot, ushort value)
-    {
-        if (!snapshot.Counters.TryGetValue(change.Tag, out var previous))
-        {
-            snapshot.Counters[change.Tag] = value;
+            _counters[counterKey] = value;
             return;
         }
         var max = _counterMax[(change.Line, change.Machine)];
         var delta = CounterDelta.Compute(previous, value, max);
-        snapshot.Counters[change.Tag] = value;
+        _counters[counterKey] = value;
         if (delta is null)
         {
             logger.LogWarning(
@@ -132,9 +48,92 @@ public sealed class MappingService(
         }
         if (delta > 0)
         {
-            logger.LogInformation(
-                "Counter {Tag} of {Line}.{Machine} increased by {Delta} (from {Previous} to {Value}, max {Max}).",
-                change.Tag, change.Line, change.Machine, delta, previous, value, max);
+            lock (_gate)
+            {
+                if (!_accumulators.TryGetValue((change.Line, change.Machine), out var accumulator))
+                {
+                    accumulator = new ProductionAccumulator();
+                    _accumulators.Add((change.Line, change.Machine), accumulator);
+                }
+                accumulator.Add(change.Tag, delta.Value, new DateTimeOffset(change.SourceTimestamp));
+            }
+        }
+    }
+
+    private async Task ReadLoopAsync(CancellationToken ct)
+    {
+        await foreach (var change in reader.ReadAllAsync(ct))
+        {
+            if (string.IsNullOrWhiteSpace(change.Line) ||
+                string.IsNullOrWhiteSpace(change.Machine))
+            {
+                logger.LogWarning("Tag change has no line or machine.");
+                continue;
+            }
+            if (StatusCode.IsBad(change.StatusCode))
+            {
+                logger.LogWarning(
+                    "Tag change for {Line}.{Machine} has bad status code {StatusCode}.",
+                    change.Line,
+                    change.Machine,
+                    change.StatusCode
+                );
+            }
+            if (change.Tag is LogicalTag.GoodCounter or LogicalTag.ScrapCounter)
+            {
+                if (!StatusCode.IsBad(change.StatusCode) && change.Value is ushort counter)
+                {
+                    HandleCounter(change, counter);
+                }
+                continue;
+            }
+
+            var key = (change.Line, change.Machine);
+            if (!_trackers.TryGetValue(key, out var tracker))
+            {
+                tracker = new MachineStateTracker();
+                _trackers.Add(key, tracker);
+            }
+            var stateEvent = tracker.Apply(change);
+            if (stateEvent is not null)
+            {
+                var message = OutboundMessage.From(change.Line, change.Machine, stateEvent);
+                await outbound.WriteAsync(message, ct);
+            }
+        }
+    }
+
+    private async Task WindowLoopAsync(CancellationToken ct)
+    {
+        var interval = options.Value.ProductionInterval;
+        using var periodicTimer = new PeriodicTimer(interval);
+        try
+        {
+            while (await periodicTimer.WaitForNextTickAsync(ct))
+            {
+                var now = DateTimeOffset.UtcNow;
+                var closed = new List<((string Line, string Machine) Key, ProductionEvent Event)>();
+                lock (_gate)
+                {
+                    foreach (var (key, accumulator) in _accumulators)
+                    {
+                        var production = accumulator.Close(now);
+                        if (production is not null)
+                        {
+                            closed.Add((key, production));
+                        }
+                    }
+                }
+                foreach (var (key, production) in closed)
+                {
+                    var message = OutboundMessage.From(key.Line, key.Machine, production);
+                    await outbound.WriteAsync(message, ct);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogInformation("Mapping service stopping");
         }
     }
 }

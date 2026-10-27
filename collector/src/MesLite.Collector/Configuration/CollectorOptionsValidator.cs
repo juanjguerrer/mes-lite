@@ -7,7 +7,7 @@ public class CollectorOptionsValidator : IValidateOptions<CollectorOptions>
     public ValidateOptionsResult Validate(string? name, CollectorOptions options)
     {
         var errors = new List<string>();
-
+        ValidateCollectorOptions(options, errors);
         ValidateOpc(options.Opc, errors);
         ValidateTags(options.Tags, errors);
         ValidateMachines(options.Machines, errors);
@@ -15,6 +15,14 @@ public class CollectorOptionsValidator : IValidateOptions<CollectorOptions>
         return errors.Count > 0
             ? ValidateOptionsResult.Fail(errors)
             : ValidateOptionsResult.Success;
+    }
+
+    private static void ValidateCollectorOptions(CollectorOptions options, List<string> errors)
+    {
+        if (options.ProductionInterval <= TimeSpan.Zero)
+        {
+            errors.Add("ProductionInterval must be greater than 0.");
+        }
     }
 
     private static void ValidateOpc(OpcOptions opc, List<string> errors)

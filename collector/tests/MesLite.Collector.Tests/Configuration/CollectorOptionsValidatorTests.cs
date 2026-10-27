@@ -24,12 +24,14 @@ public class CollectorOptionsValidatorTests
     private static CollectorOptions Options(
         OpcOptions? opc = null,
         Dictionary<string, string>? tags = null,
-        List<MachineOptions>? machines = null) =>
+        List<MachineOptions>? machines = null,
+        TimeSpan? productionInterval = null) =>
         new()
         {
             Opc = opc ?? ValidOpc(),
             Tags = tags ?? ValidTags(),
             Machines = machines ?? ValidMachines(),
+            ProductionInterval = productionInterval ?? TimeSpan.FromSeconds(10),
         };
 
     private static ValidateOptionsResult Validate(CollectorOptions options) => Validator.Validate(null, options);
@@ -171,6 +173,22 @@ public class CollectorOptionsValidatorTests
         };
 
         AssertFailsWith(Validate(Options(opc: opc)), "Opc.SamplingInterval must be greater than 0");
+    }
+
+    [Fact]
+    public void Validate_AcceptsThePositiveProductionInterval()
+    {
+        Assert.True(Validate(Options(productionInterval: TimeSpan.FromSeconds(10))).Succeeded);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    public void Validate_RejectsANonPositiveProductionInterval(int seconds)
+    {
+        var options = Options(productionInterval: TimeSpan.FromSeconds(seconds));
+
+        AssertFailsWith(Validate(options), "ProductionInterval must be greater than 0");
     }
 
     [Fact]

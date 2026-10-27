@@ -7,4 +7,6 @@ public class CollectorOptions
     public Dictionary<string, string> Tags { get; init; } = new();
 
     public List<MachineOptions> Machines { get; init; } = new();
+
+    public TimeSpan ProductionInterval { get; init; } = TimeSpan.FromSeconds(10);
 }
