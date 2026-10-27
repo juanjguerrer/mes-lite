@@ -93,27 +93,27 @@ public interface MachineStateEventRepository
 
     boolean existsByMachineIdAndSequence(Long machineId, Long sequence);
 
-        @Query(value = """
-        WITH sequences AS (
-            SELECT sequence FROM machine_state_events
-            WHERE machine_id = :machineId AND sequence IS NOT NULL
-            UNION ALL
-            SELECT sequence FROM production_counts
-            WHERE machine_id = :machineId AND sequence IS NOT NULL
-        ),
-        with_next AS (
-            SELECT
-                sequence AS from_sequence,
-                LEAD(sequence) OVER (ORDER BY sequence) AS to_sequence
-            FROM sequences
-        )
+    @Query(value = """
+    WITH sequences AS (
+        SELECT sequence FROM machine_state_events
+        WHERE machine_id = :machineId AND sequence IS NOT NULL
+        UNION ALL
+        SELECT sequence FROM production_counts
+        WHERE machine_id = :machineId AND sequence IS NOT NULL
+    ),
+    with_next AS (
         SELECT
-            from_sequence AS "fromSequence",
-            to_sequence AS "toSequence",
-            to_sequence - from_sequence - 1 AS "missing"
-        FROM with_next
-        WHERE to_sequence - from_sequence > 1
-        ORDER BY from_sequence
-        """, nativeQuery = true)
+            sequence AS from_sequence,
+            LEAD(sequence) OVER (ORDER BY sequence) AS to_sequence
+        FROM sequences
+    )
+    SELECT
+        from_sequence AS "fromSequence",
+        to_sequence AS "toSequence",
+        to_sequence - from_sequence - 1 AS "missing"
+    FROM with_next
+    WHERE to_sequence - from_sequence > 1
+    ORDER BY from_sequence
+    """, nativeQuery = true)
     List<SequenceGapRow> findSequenceGaps(@Param("machineId") Long machineId);
 }
