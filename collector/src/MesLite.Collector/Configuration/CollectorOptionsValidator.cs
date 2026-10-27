@@ -8,6 +8,7 @@ public class CollectorOptionsValidator : IValidateOptions<CollectorOptions>
     {
         var errors = new List<string>();
         ValidateCollectorOptions(options, errors);
+        ValidateMqtt(options.Mqtt, errors);
         ValidateOpc(options.Opc, errors);
         ValidateTags(options.Tags, errors);
         ValidateMachines(options.Machines, errors);
@@ -27,6 +28,24 @@ public class CollectorOptionsValidator : IValidateOptions<CollectorOptions>
         if (string.IsNullOrWhiteSpace(options.OutboxPath))
         {
             errors.Add("OutboxPath is required.");
+        }
+    }
+
+    private static void ValidateMqtt(MqttOptions mqtt, List<string> errors)
+    {
+        if (string.IsNullOrWhiteSpace(mqtt.Host))
+        {
+            errors.Add("Mqtt.Host is required.");
+        }
+
+        if (mqtt.Port is < 1 or > 65535)
+        {
+            errors.Add("Mqtt.Port must be between 1 and 65535.");
+        }
+
+        if (string.IsNullOrWhiteSpace(mqtt.ClientId))
+        {
+            errors.Add("Mqtt.ClientId is required.");
         }
     }
 

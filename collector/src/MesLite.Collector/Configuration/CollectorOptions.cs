@@ -11,4 +11,5 @@ public class CollectorOptions
     public TimeSpan ProductionInterval { get; init; } = TimeSpan.FromSeconds(10);
 
     public string OutboxPath { get; init; } = "outbox.db";
+    public MqttOptions Mqtt { get; init; } = new();
 }
