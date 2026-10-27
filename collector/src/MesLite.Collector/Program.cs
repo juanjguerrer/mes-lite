@@ -1,10 +1,29 @@
+using System.Threading.Channels;
 using MesLite.Collector;
 using MesLite.Collector.Configuration;
+using MesLite.Collector.Mapping;
 using MesLite.Collector.OpcUa;
 using Microsoft.Extensions.Options;
 using Opc.Ua;
 
 var builder = Host.CreateApplicationBuilder(args);
+
+builder.Services
+    .AddSingleton(
+        _ => Channel.CreateUnbounded<TagChange>(
+            new UnboundedChannelOptions
+            {
+                SingleReader = true,
+                SingleWriter = false
+            }));
+
+builder.Services.AddSingleton(sp => sp.GetRequiredService<Channel<TagChange>>().Writer);
+
+builder.Services.AddSingleton(sp => sp.GetRequiredService<Channel<TagChange>>().Reader);
+
+builder.Services.AddSingleton<TagSubscriber>();
+
+builder.Services.AddHostedService<MappingService>();
 
 builder.Services
     .AddSingleton<IValidateOptions<CollectorOptions>, CollectorOptionsValidator>()

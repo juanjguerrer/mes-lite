@@ -57,6 +57,23 @@ variables using `__` as separator, for example `Collector__Opc__EndpointUrl`.
 Configuration is validated at startup; the service fails fast with a clear message
 if it is invalid.
 
+## Reconnection and restarts
+
+If the OPC UA server goes down or restarts, the session reconnects on its own with
+a growing delay (`ReconnectInitialDelay` up to `ReconnectMaxDelay`) and without a
+total time limit. The subscription is recreated and the server sends the current
+value of every tag again; those values carry a new `Generation` so they can be told
+apart from real changes.
+
+After the subscription is recreated the collector checks that the namespace URI
+still maps to the same index. If it changed, the subscribed NodeIds would point to
+the wrong nodes, so the collector logs a critical message, stops and exits with
+code 1.
+
+The collector does not restart itself: run it under something that restarts it on
+failure, such as `restart: on-failure` in Docker Compose, systemd, or the recovery
+options of a Windows service.
+
 ## Layout
 
 ```

@@ -1,25 +1,35 @@
-namespace MesLite.Collector.OpcUa;
-
+using System.Threading.Channels;
 using MesLite.Collector.Configuration;
 using Microsoft.Extensions.Options;
 using Opc.Ua;
 using Opc.Ua.Client;
 using Opc.Ua.Client.Subscriptions;
 
+namespace MesLite.Collector.OpcUa;
+
 public class TagSubscriber(
-    ILogger<TagSubscriber> logger
+    ILogger<TagSubscriber> logger,
+    ChannelWriter<TagChange> writer,
+    IHostApplicationLifetime lifetime,
+    NodeIdResolver resolver,
+    IOptions<CollectorOptions> options
 ) : ISubscriptionNotificationHandler, IAsyncDisposable
 {
     private readonly Dictionary<string, (MachineOptions Machine, LogicalTag Tag)> _itemMap = new();
     private ISubscription? _subscription;
-    public ISubscription Subscribe(
-        ManagedSession session,
-        IReadOnlyList<MachineOptions> machines,
-        NodeIdResolver resolver,
-        IOptions<CollectorOptions> config,
-        ushort nsIndex
+    private int _generation = 0;
+    private ushort _nsIndex;
+
+    private ManagedSession? _session;
+    private string? _namespaceUri;
+
+    private readonly CollectorOptions _config = options.Value;
+    public void Subscribe(
+        ManagedSession session
     )
     {
+        _itemMap.Clear();
+        var machines = _config.Machines;
         foreach (var machine in machines)
         {
             foreach (var tag in Enum.GetValues<LogicalTag>())
@@ -27,13 +37,23 @@ public class TagSubscriber(
                 _itemMap[$"{machine.Line}.{machine.Machine}.{tag}"] = (machine, tag);
             }
         }
+        var uri = _config.Opc.NamespaceUri;
+        var index = session.NamespaceUris.GetIndex(uri!);
+        if (index < 0)
+        {
+            throw new InvalidOperationException($"NamespaceUri '{uri}' not found in server.");
+        }
+        var nsIndex = (ushort)index;
+        _session = session;
+        _namespaceUri = uri;
+        _nsIndex = nsIndex;
         var subscription = session.AddSubscription(
             this,
             new Opc.Ua.Client.Subscriptions.SubscriptionOptions
             {
-                PublishingInterval = config.Value.Opc.PublishingInterval,
-                KeepAliveCount = config.Value.Opc.KeepAliveCount,
-                LifetimeCount = config.Value.Opc.LifetimeCount,
+                PublishingInterval = _config.Opc.PublishingInterval,
+                KeepAliveCount = _config.Opc.KeepAliveCount,
+                LifetimeCount = _config.Opc.LifetimeCount,
                 PublishingEnabled = true
             });
         _subscription = subscription;
@@ -41,45 +61,45 @@ public class TagSubscriber(
         {
             var nodeId = new NodeId(resolver.Resolve(machine, tag), nsIndex);
             var added = subscription.TryAddMonitoredItem(itemName, nodeId,
-                options => options with
+                itemOptions  => itemOptions with
                 {
-                    SamplingInterval = config.Value.Opc.SamplingInterval,
-                    QueueSize = config.Value.Opc.QueueSize,
+                    SamplingInterval = _config.Opc.SamplingInterval,
+                    QueueSize = _config.Opc.QueueSize,
                     DiscardOldest = true
                 },
                 out var monitoredItem);
             if (!added || monitoredItem is null)
             {
-                logger.LogError("Failed to add monitored item for {ItemName} with NodeId {NodeId}", itemName, nodeId);
-                continue;
+                throw new InvalidOperationException($"Failed to add monitored item for {itemName} (NodeId: {nodeId})");
             }
         }
-        return subscription;
     }
     public ValueTask OnDataChangeNotificationAsync(ISubscription subscription, uint sequenceNumber, DateTime publishTime, ReadOnlyMemory<DataValueChange> notification, PublishState publishStateMask, IReadOnlyList<string> stringTable)
     {
-        logger.LogInformation(
-            "Data change notification received. SequenceNumber: {SequenceNumber}, PublishTime: {PublishTime}, PublishState: {PublishState}, ItemCount: {ItemCount}",
-            sequenceNumber,
-            publishTime,
-            publishStateMask,
-            notification.Length
-        );
         foreach (var change in notification.Span)
         {
             if (change.MonitoredItem is null
                 || !_itemMap.TryGetValue(change.MonitoredItem.Name, out var info))
             {
-                logger.LogWarning("Received data change for unknown monitored item.");
                 continue;
             }
-            logger.LogInformation(
-                "Data change received. Item: {Item}, Value: {Value}, Status: {Status}, SourceTimestamp: {SourceTimestamp}",
-                change.MonitoredItem?.ToString() ?? "<null>",
-                change.Value.WrappedValue,
-                change.Value.StatusCode,
-                change.Value.SourceTimestamp
+            // Machine and Line are guaranteed to be non-null because they are checked in the _itemMap.
+            var tagChange = new TagChange(
+                Machine: info.Machine.Machine!,
+                Line: info.Machine.Line!,
+                Tag: info.Tag,
+                Value: change.Value.WrappedValue.AsBoxedObject(),
+                StatusCode: change.Value.StatusCode,
+                SourceTimestamp: change.Value.SourceTimestamp.ToDateTime(),
+                Generation: Volatile.Read(ref _generation)
             );
+            if (!writer.TryWrite(tagChange))
+            {
+                logger.LogWarning(
+                    "Failed to write tag change for {Machine}.{Tag}",
+                    info.Machine.Machine,
+                    info.Tag);
+            }
         }
         return ValueTask.CompletedTask;
     }
@@ -96,11 +116,33 @@ public class TagSubscriber(
 
     public ValueTask OnSubscriptionStateChangedAsync(ISubscription subscription, Opc.Ua.Client.Subscriptions.SubscriptionState state, PublishState publishStateMask, CancellationToken ct = default)
     {
+        if (state == Opc.Ua.Client.Subscriptions.SubscriptionState.Created)
+        {
+            Interlocked.Increment(ref _generation);
+            CheckNamespaceIndex();
+        }
         logger.LogInformation(
             "Subscription state changed: {State}, PublishState: {PublishState}",
             state,
             publishStateMask);
         return ValueTask.CompletedTask;
+    }
+
+    private void CheckNamespaceIndex()
+    {
+        if (_session is null || _namespaceUri is null)
+        {
+            return;
+        }
+        var current = _session.NamespaceUris.GetIndex(_namespaceUri);
+        if (current == _nsIndex) return;
+        logger.LogCritical(
+            "Namespace index for '{NamespaceUri}' changed from {OldIndex} to {NewIndex}. This may indicate a server restart or reconfiguration. The collector will stop.",
+            _namespaceUri,
+            _nsIndex,
+            current);
+        Environment.ExitCode = 1;
+        lifetime.StopApplication();
     }
 
     public async ValueTask DisposeAsync()

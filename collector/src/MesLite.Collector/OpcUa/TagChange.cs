@@ -4,9 +4,11 @@ using Opc.Ua;
 namespace MesLite.Collector.OpcUa;
 
 public record class TagChange(
-    MachineOptions Machine,
+    string Line,
+    string Machine,
     LogicalTag Tag,
     object? Value,
     StatusCode StatusCode,
-    DateTime SourceTimestamp
+    DateTime SourceTimestamp,
+    int Generation = 0
 );
