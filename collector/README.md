@@ -186,10 +186,15 @@ let the outbox drain first if that matters.
 
 ## Deployment
 
-The collector is not containerized yet: `compose.yaml` only runs the broker, and the
-simulator and the MES are started by hand. If it is added to the compose file, the
-outbox path needs a persistent volume, otherwise pending events are lost with the
-container.
+`compose.yaml` at the repository root runs the collector next to the broker, the MES
+(with its PostgreSQL) and the simulator, built from `collector/Dockerfile`. In the
+container the endpoint and the broker host are set with environment variables
+(`Collector__Opc__EndpointUrl`, `Collector__Mqtt__Host`), and the outbox lives on the
+`collector-data` volume (`/data/outbox.db`), so pending events and the sequence
+numbers survive a container restart. Do not remove that volume without also
+resetting the MES database: the sequence would start again at 1 and the MES would
+reject it as already used. The service restarts on failure, as described in
+[Reconnection and restarts](#reconnection-and-restarts).
 
 ## Layout
 

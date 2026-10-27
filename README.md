@@ -129,7 +129,15 @@ Docker must be running: integration tests start a disposable `postgres:18` conta
 
 ### 5. Run the whole chain (optional)
 
-The MES also works alone. To feed it from the simulated plant, start each piece in its own terminal:
+The MES also works alone. To feed it from the simulated plant, the quickest way is Docker Compose, which builds and starts the broker, PostgreSQL, the MES, the simulator and the collector:
+
+```bash
+docker compose up -d --build
+```
+
+The MES listens on `http://localhost:8080` (it runs with the `dev` profile, so the sample data includes the lines and machines the simulator uses) and the simulator on `opc.tcp://localhost:4840/mes-lite/`. The database password defaults to `mes-lite`; set `DB_PASSWORD` to change it. The containers use the ports of the local MES (8080) and the broker (1883), so do not run those at the same time. To start only the broker, run `docker compose up -d mosquitto`; `docker compose down` stops everything and keeps the data (add `-v` to delete the database and the collector outbox together).
+
+To run the pieces by hand instead, start each one in its own terminal:
 
 1. Broker, from the repository root: `docker compose up -d mosquitto`.
 2. MES, from `mes/`, with MQTT on: `MES_MQTT_ENABLED=true ./mvnw spring-boot:run` (the `dev` profile turns it on by default).
@@ -338,7 +346,8 @@ mes/src/main/resources/db/migration/   Flyway migrations
 mes/src/main/resources/db/seed/        dev-only sample data (repeatable migration)
 collector/                             C# collector: OPC UA subscription, mapping, outbox and MQTT publisher
 simulator/                             Python OPC UA server that plays the PLC
-mosquitto/                             MQTT broker configuration (compose.yaml starts it)
+mosquitto/                             MQTT broker configuration
+compose.yaml                           broker, PostgreSQL, MES, simulator and collector (each folder has its Dockerfile)
 ```
 
 Each request flows **controller → service → repository**. Controllers only speak DTOs; entities never leave the service layer.

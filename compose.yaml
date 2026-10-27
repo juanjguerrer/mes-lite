@@ -9,3 +9,69 @@ services:
       - ./mosquitto/config:/mosquitto/config
       - ./mosquitto/data:/mosquitto/data
       - ./mosquitto/log:/mosquitto/log
+
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mes_lite
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-mes-lite}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mes_lite"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # The dev profile loads the sample data, which includes the lines and machines
+  # the simulator publishes (ASM and PACK), so the MES accepts their events.
+  mes:
+    build: ./mes
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      DB_URL: jdbc:postgresql://postgres:5432/mes_lite
+      DB_USERNAME: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-mes-lite}
+      MES_MQTT_ENABLED: "true"
+      MES_MQTT_URL: tcp://mosquitto:1883
+    ports:
+      - "8080:8080"
+    # The broker only keeps messages for a subscription that already exists, so the
+    # collector waits until the MES is up and subscribed (the port opens right before).
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080'"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
+
+  simulator:
+    build: ./simulator
+    restart: unless-stopped
+    ports:
+      - "4840:4840"
+
+  collector:
+    build: ./collector
+    restart: on-failure
+    depends_on:
+      mes:
+        condition: service_healthy
+      simulator:
+        condition: service_started
+    environment:
+      Collector__Opc__EndpointUrl: opc.tcp://simulator:4840/mes-lite/
+      Collector__Mqtt__Host: mosquitto
+    volumes:
+      - collector-data:/data
+
+volumes:
+  pgdata:
+  collector-data:
