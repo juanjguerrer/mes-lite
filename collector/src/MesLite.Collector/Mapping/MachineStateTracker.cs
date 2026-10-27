@@ -70,7 +70,7 @@ public class MachineStateTracker(
         _snapshot.LastState = state;
         _snapshot.Recovering = false;
 
-        var reason = recovered ? "Recovered after recconect"
+        var reason = recovered ? "Recovered after reconnect"
         : state == MachineState.Down ? $"Fault code: {_snapshot.FaultCode}" : null;
 
         return new StateEvent(

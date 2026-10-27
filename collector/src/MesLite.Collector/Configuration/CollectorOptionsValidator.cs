@@ -47,6 +47,11 @@ public class CollectorOptionsValidator : IValidateOptions<CollectorOptions>
         {
             errors.Add("Mqtt.ClientId is required.");
         }
+
+        if (mqtt.RetryDelay <= TimeSpan.Zero)
+        {
+            errors.Add("Mqtt.RetryDelay must be greater than 0.");
+        }
     }
 
     private static void ValidateOpc(OpcOptions opc, List<string> errors)
