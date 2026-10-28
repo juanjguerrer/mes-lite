@@ -3,16 +3,17 @@ package io.github.juanjguerrer.meslite.machine.dto;
 import java.time.Instant;
 
 import io.github.juanjguerrer.meslite.machine.Machine;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 public record MachineResponse(
-    Long id,
-    String name,
-    String code,
-    String description,
-    Integer idealCycleTimeMs,
-    Long lineId,
-    Instant createdAt,
-    Instant updatedAt
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Long id,
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String code,
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) String description,
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) Integer idealCycleTimeMs,
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Long lineId,
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt
 ) {
     public static MachineResponse from(Machine machine) {
         return new MachineResponse(

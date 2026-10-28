@@ -3,15 +3,16 @@ package io.github.juanjguerrer.meslite.line.dto;
 import java.time.Instant;
 
 import io.github.juanjguerrer.meslite.line.ProductionLine;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 public record LineResponse(
-    Long id,
-    String name,
-    String code,
-    String description,
-    Instant createdAt,
-    Instant updatedAt,
-    Long referenceMachineId
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Long id,
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String code,
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) String description,
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt,
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) Long referenceMachineId
 ) {
     public static LineResponse from(ProductionLine productionLine) {
         return new LineResponse(
