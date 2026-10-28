@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
@@ -18,6 +19,7 @@ import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 
+import io.github.juanjguerrer.meslite.common.config.PlantProperties;
 import io.github.juanjguerrer.meslite.common.exception.ConflictException;
 import io.github.juanjguerrer.meslite.machine.Machine;
 import io.github.juanjguerrer.meslite.machine.MachineRepository;
@@ -33,7 +35,8 @@ class ProductionCountServiceTest {
     private final ProductionCountService service = new ProductionCountService(
         repository,
         machineRepository,
-        Clock.fixed(NOW, ZoneOffset.UTC)
+        Clock.fixed(NOW, ZoneOffset.UTC),
+        new PlantProperties(ZoneId.of("America/Mexico_City"))
     );
 
     private final CreateProductionCountRequest request = new CreateProductionCountRequest(

@@ -206,8 +206,11 @@ Shift times are local `HH:mm` values, e.g. `{"code": "C", "name": "Night", "star
 | `POST` | `/api/lines/{lineCode}/machines/{machineCode}/counts` | Report good/scrap pieces for an interval → `201`; `200` on retry |
 | `GET` | `/api/production-counts/{id}` | Get a count |
 | `GET` | `/api/machines/{id}/production-counts/totals?from=&to=` | Good, scrap and total pieces within a range |
+| `GET` | `/api/machines/{id}/production-counts/hourly?from=&to=` | Good and scrap pieces per plant-local hour; empty hours return zeros |
 
 A count belongs to the range in which its interval **ends** (`from < intervalEnd <= to`), so adjacent ranges never count the same pieces twice. Keep intervals short (one minute) so boundary effects stay small.
+
+The hourly series applies the same rule: a count ending exactly on the hour goes to the previous bucket. `from` and `to` need not be aligned to the hour, so the first bucket may start before `from` and the last one (`to` is clipped to now) may be incomplete.
 
 ### OEE
 
@@ -367,6 +370,7 @@ Each request flows **controller → service → repository**. Controllers only s
 - **The collector owns the event identity**: `eventId` and `sequence` are assigned by the collector before it stores the event in its outbox, so a resend carries the same values and the MES can discard repeats and spot losses.
 - **MQTT is at-least-once**: the MES treats a replayed message as a no-op, and a message it cannot accept goes to a dead-letter topic instead of blocking the ones behind it.
 - **Known limitation**: the shift overlap check is check-then-insert, so two simultaneous creations could slip an overlap through.
+- **Known limitation**: hourly buckets are truncated in the plant zone with `date_trunc`; in the repeated hour of a daylight-saving fall-back the bucket assignment has not been verified (the default zone, `America/Mexico_City`, has no daylight saving time).
 
 ## Roadmap
 

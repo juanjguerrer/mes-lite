@@ -10,6 +10,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import io.github.juanjguerrer.meslite.common.config.PlantProperties;
 import io.github.juanjguerrer.meslite.common.exception.BusinessRuleException;
 import io.github.juanjguerrer.meslite.common.exception.ConflictException;
 import io.github.juanjguerrer.meslite.common.exception.NotFoundException;
@@ -18,6 +19,7 @@ import io.github.juanjguerrer.meslite.event.EventTimeRules;
 import io.github.juanjguerrer.meslite.machine.Machine;
 import io.github.juanjguerrer.meslite.machine.MachineRepository;
 import io.github.juanjguerrer.meslite.production.dto.CreateProductionCountRequest;
+import io.github.juanjguerrer.meslite.production.dto.HourlyProductionResponse;
 import io.github.juanjguerrer.meslite.production.dto.ProductionCountResponse;
 import io.github.juanjguerrer.meslite.production.dto.ProductionTotalsResponse;
 
@@ -26,11 +28,36 @@ public class ProductionCountService {
     private final ProductionCountRepository repository;
     private final MachineRepository machineRepository;
     private final Clock clock;
+    private final PlantProperties plantProperties;
 
-    public ProductionCountService(ProductionCountRepository repository, MachineRepository machineRepository, Clock clock) {
+    public ProductionCountService(
+        ProductionCountRepository repository,
+        MachineRepository machineRepository,
+        Clock clock,
+        PlantProperties plantProperties
+    ) {
         this.repository = repository;
         this.machineRepository = machineRepository;
         this.clock = clock;
+        this.plantProperties = plantProperties;
+    }
+
+    @Transactional(readOnly = true)
+    public HourlyProductionResponse hourly(
+        Long machineId,
+        Instant from,
+        Instant to
+    ) {
+        if (!machineRepository.existsById(machineId)) {
+            throw NotFoundException.byId("Machine", machineId);
+        }
+        var range = TimeRanges.validateAndAdjust(from, to, clock);
+        var buckets = repository
+            .sumHourlyByMachineAndRange(machineId, range.from(), range.to(), plantProperties.zoneId().getId())
+            .stream()
+            .map(row -> new HourlyProductionResponse.Bucket(row.getBucketStart(), row.getGoodCount(), row.getScrapCount()))
+            .toList();
+        return new HourlyProductionResponse(machineId, range.from(), range.to(), buckets);
     }
 
     @Transactional(readOnly = true)

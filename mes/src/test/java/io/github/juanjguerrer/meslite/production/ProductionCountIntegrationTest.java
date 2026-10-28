@@ -274,6 +274,109 @@ class ProductionCountIntegrationTest {
             .andExpect(status().isBadRequest());
     }
 
+    // --- hourly ---
+
+    @Test
+    void hourlySumsCountsEndingInTheSameHour() throws Exception {
+        save(press, 10, 1, T0800.plus(10, ChronoUnit.MINUTES), T0800.plus(20, ChronoUnit.MINUTES));
+        save(press, 20, 2, T0800.plus(20, ChronoUnit.MINUTES), T0800.plus(40, ChronoUnit.MINUTES));
+
+        hourly(press.getId(), T0800, T0900)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.machineId").value(press.getId()))
+            .andExpect(jsonPath("$.from").value(T0800.toString()))
+            .andExpect(jsonPath("$.to").value(T0900.toString()))
+            .andExpect(jsonPath("$.buckets.length()").value(1))
+            .andExpect(jsonPath("$.buckets[0].bucketStart").value(T0800.toString()))
+            .andExpect(jsonPath("$.buckets[0].goodCount").value(30))
+            .andExpect(jsonPath("$.buckets[0].scrapCount").value(3));
+    }
+
+    @Test
+    void hourlyPutsACountEndingExactlyOnTheHourInThePreviousBucket() throws Exception {
+        save(press, 50, 2, T0800, T0900);
+        save(press, 40, 3, T0900, T1000);
+
+        hourly(press.getId(), T0800, T1000)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.buckets.length()").value(2))
+            .andExpect(jsonPath("$.buckets[0].bucketStart").value(T0800.toString()))
+            .andExpect(jsonPath("$.buckets[0].goodCount").value(50))
+            .andExpect(jsonPath("$.buckets[0].scrapCount").value(2))
+            .andExpect(jsonPath("$.buckets[1].bucketStart").value(T0900.toString()))
+            .andExpect(jsonPath("$.buckets[1].goodCount").value(40))
+            .andExpect(jsonPath("$.buckets[1].scrapCount").value(3));
+    }
+
+    @Test
+    void hourlyReturnsHoursWithoutCountsAsZeros() throws Exception {
+        save(press, 50, 2, T0800, T0900);
+        save(press, 30, 4, T1000, T1100);
+
+        hourly(press.getId(), T0800, T1100)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.buckets.length()").value(3))
+            .andExpect(jsonPath("$.buckets[1].bucketStart").value(T0900.toString()))
+            .andExpect(jsonPath("$.buckets[1].goodCount").value(0))
+            .andExpect(jsonPath("$.buckets[1].scrapCount").value(0));
+    }
+
+    @Test
+    void hourlyIgnoresCountsOutsideTheRangeAndOfOtherMachines() throws Exception {
+        save(press, 100, 1, T0800.minus(1, ChronoUnit.HOURS), T0800);  // ends exactly at from
+        save(press, 50, 2, T0800, T0900);                              // inside
+        save(press, 30, 4, T0900, T1000);                              // after the range
+        save(labeler, 999, 9, T0800, T0900);                           // another machine
+
+        hourly(press.getId(), T0800, T0900)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.buckets.length()").value(1))
+            .andExpect(jsonPath("$.buckets[0].goodCount").value(50))
+            .andExpect(jsonPath("$.buckets[0].scrapCount").value(2));
+    }
+
+    @Test
+    void hourlyFirstBucketIsPartialWhenFromIsNotOnTheHour() throws Exception {
+        Instant from = T0800.plus(30, ChronoUnit.MINUTES);
+        save(press, 10, 1, T0800.plus(10, ChronoUnit.MINUTES), T0800.plus(20, ChronoUnit.MINUTES)); // before from
+        save(press, 20, 2, T0800.plus(40, ChronoUnit.MINUTES), T0800.plus(50, ChronoUnit.MINUTES)); // after from
+
+        hourly(press.getId(), from, T0900)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.buckets.length()").value(1))
+            .andExpect(jsonPath("$.buckets[0].bucketStart").value(T0800.toString()))
+            .andExpect(jsonPath("$.buckets[0].goodCount").value(20))
+            .andExpect(jsonPath("$.buckets[0].scrapCount").value(2));
+    }
+
+    @Test
+    void hourlyReturns404ForUnknownMachine() throws Exception {
+        hourly(999999L, T0800, T1000).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void hourlyRejects422InvertedOrEmptyRange() throws Exception {
+        hourly(press.getId(), T1000, T0800).andExpect(status().isUnprocessableContent());
+        hourly(press.getId(), T0800, T0800).andExpect(status().isUnprocessableContent());
+    }
+
+    @Test
+    void hourlyRejects422RangeLongerThan31Days() throws Exception {
+        hourly(press.getId(), T0800, T0800.plus(32, ChronoUnit.DAYS)).andExpect(status().isUnprocessableContent());
+    }
+
+    @Test
+    void hourlyRequiresBothEnds() throws Exception {
+        mvc.perform(get("/api/machines/" + press.getId() + "/production-counts/hourly").param("from", T0800.toString()))
+            .andExpect(status().isBadRequest());
+    }
+
+    private ResultActions hourly(Long machineId, Instant from, Instant to) throws Exception {
+        return mvc.perform(get("/api/machines/" + machineId + "/production-counts/hourly")
+            .param("from", from.toString())
+            .param("to", to.toString()));
+    }
+
     private ResultActions ingest(String lineCode, String machineCode, String body) throws Exception {
         return mvc.perform(post("/api/lines/" + lineCode + "/machines/" + machineCode + "/counts")
             .contentType(MediaType.APPLICATION_JSON)

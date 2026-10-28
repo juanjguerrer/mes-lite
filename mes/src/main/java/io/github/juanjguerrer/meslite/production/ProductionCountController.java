@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import io.github.juanjguerrer.meslite.production.dto.CreateProductionCountRequest;
+import io.github.juanjguerrer.meslite.production.dto.HourlyProductionResponse;
 import io.github.juanjguerrer.meslite.production.dto.ProductionCountResponse;
 import io.github.juanjguerrer.meslite.production.dto.ProductionTotalsResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -61,6 +62,23 @@ public class ProductionCountController {
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to
     ) {
         return service.totals(machineId, from, to);
+    }
+
+    @GetMapping("/machines/{machineId}/production-counts/hourly")
+    @Operation(
+        summary = "Get good and scrap pieces of a machine per hour",
+        description = "One bucket per plant-local hour, identified by its start. A count belongs to the hour in which "
+            + "it ends (from < intervalEnd <= to), so a count ending exactly on the hour goes to the previous bucket. "
+            + "Hours without counts are returned with zeros. 'from' and 'to' need not be aligned to the hour: the first "
+            + "bucket may start before 'from' and the last may be incomplete, since only counts inside the range are added. "
+            + "'to' is clipped to the current time and the range may not exceed 31 days."
+    )
+    public HourlyProductionResponse hourly(
+        @PathVariable Long machineId,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to
+    ) {
+        return service.hourly(machineId, from, to);
     }
 
     @GetMapping("/production-counts/{id}")
