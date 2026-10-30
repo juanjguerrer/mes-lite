@@ -1,12 +1,13 @@
 import { Component, input, numberAttribute, signal } from '@angular/core';
 import { Shift } from '../../core/models/shift';
+import { HourlyProductionChart } from '../hourly-production-chart/hourly-production-chart';
 import { MachineStates } from '../machine-states/machine-states';
 import { OeeTable } from '../oee-table/oee-table';
 import { ShiftSelector } from '../shift-selector/shift-selector';
 import { StateDurationsChart } from '../state-durations-chart/state-durations-chart';
 
 @Component({
-  imports: [MachineStates, ShiftSelector, OeeTable, StateDurationsChart],
+  imports: [MachineStates, ShiftSelector, OeeTable, StateDurationsChart, HourlyProductionChart],
   selector: 'app-line-dashboard',
   styleUrl: './line-dashboard.scss',
   templateUrl: './line-dashboard.html',

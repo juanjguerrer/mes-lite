@@ -1,0 +1,21 @@
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+select {
+  padding: 0.25rem 0.5rem;
+}
+
+.range {
+  margin-left: auto;
+  color: #555;
+  font-size: 0.875rem;
+}
+
+.chart {
+  width: 100%;
+  height: 20rem;
+}
