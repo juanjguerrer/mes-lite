@@ -1,0 +1,22 @@
+<label for="line-select">Line</label>
+<select
+  id="line-select"
+  [disabled]="loading() || failed()"
+  (change)="select($any($event.target).value)"
+>
+  <option value="" [selected]="!selectedId()">
+    @if (loading()) {
+      Loading…
+    } @else {
+      Select a line
+    }
+  </option>
+  @for (line of lines(); track line.id) {
+    <option [value]="line.id" [selected]="selectedId() === '' + line.id">
+      {{ line.code }} · {{ line.name }}
+    </option>
+  }
+</select>
+@if (failed()) {
+  <span class="error" role="alert">Could not load the lines</span>
+}

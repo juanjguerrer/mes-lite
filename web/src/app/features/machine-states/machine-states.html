@@ -1,0 +1,29 @@
+@if (view().failed) {
+  <p role="alert">
+    @if (view().loaded) {
+      Could not refresh; showing the last data.
+    } @else {
+      Could not load the machines.
+    }
+  </p>
+}
+<ul class="grid">
+  @for (machine of view().machines; track machine.machineId) {
+    @if (machine.state && machine.since) {
+      <li class="card" [style.--state-color]="colors[machine.state]">
+        <strong class="code">{{ machine.machineCode }}</strong>
+        <span class="state">{{ labels[machine.state] }}</span>
+        <span class="since">since {{ formatTime(machine.since) }}</span>
+      </li>
+    } @else {
+      <li class="card no-data">
+        <strong class="code">{{ machine.machineCode }}</strong>
+        <span class="state">No data</span>
+      </li>
+    }
+  } @empty {
+    @if (view().loaded) {
+      <li class="card no-data">No machines</li>
+    }
+  }
+</ul>

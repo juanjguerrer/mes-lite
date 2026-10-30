@@ -1,0 +1,36 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #ddd;
+  border-left: 0.5rem solid var(--state-color, #999);
+  border-radius: 0.25rem;
+  background: #fff;
+}
+
+.code {
+  font-size: 1.25rem;
+}
+
+.state {
+  font-weight: 600;
+}
+
+.since {
+  font-size: 0.875rem;
+  color: #555;
+}
+
+.no-data {
+  opacity: 0.6;
+}
