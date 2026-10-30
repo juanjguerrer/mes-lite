@@ -1,2 +1,4 @@
 <app-machine-states [lineId]="lineId()" />
-<app-oee-table [lineId]="lineId()" />
+<app-shift-selector [lineId]="lineId()" (shiftChange)="shift.set($event)" />
+<app-oee-table [lineId]="lineId()" [shift]="shift()" />
+<app-state-durations-chart [lineId]="lineId()" [shift]="shift()" />

@@ -1,14 +1,12 @@
-import { Component, computed, inject, input, numberAttribute, signal } from '@angular/core';
+import { Component, inject, input, numberAttribute } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { catchError, combineLatest, forkJoin, map, of, scan, switchMap, timer } from 'rxjs';
 import { Machines } from '../../core/api/machines';
 import { Oee } from '../../core/api/oee';
-import { Shifts } from '../../core/api/shifts';
 import { Machine } from '../../core/models/machine';
 import { OeeResult } from '../../core/models/oee';
 import { Shift } from '../../core/models/shift';
 import { formatRatio } from '../../shared/format-ratio';
-import { formatShiftTime } from '../../shared/plant-clock';
 import { latestShiftDate } from '../../shared/plant-time';
 
 const REFRESH_MS = 30_000;
@@ -31,8 +29,6 @@ interface OeeView {
 
 const INITIAL: OeeView = { date: '', rows: [], loaded: false, failed: false };
 
-type ShiftsState = { status: 'loading' } | { status: 'error' } | { status: 'ready'; shifts: Shift[] };
-
 @Component({
   imports: [],
   selector: 'app-oee-table',
@@ -41,45 +37,14 @@ type ShiftsState = { status: 'loading' } | { status: 'error' } | { status: 'read
 })
 export class OeeTable {
   readonly lineId = input.required({ transform: numberAttribute });
+  /** The shift to show; nothing is loaded while it is undefined. */
+  readonly shift = input<Shift | undefined>();
 
-  private readonly shiftsApi = inject(Shifts);
   private readonly machinesApi = inject(Machines);
   private readonly oeeApi = inject(Oee);
-  protected readonly formatShiftTime = formatShiftTime;
   protected readonly formatRatio = formatRatio;
 
-  private readonly shiftsState = toSignal(
-    toObservable(this.lineId).pipe(
-      switchMap((lineId) =>
-        this.shiftsApi.listByLine(lineId).pipe(
-          map((shifts): ShiftsState => ({ status: 'ready', shifts })),
-          catchError(() => of<ShiftsState>({ status: 'error' })),
-        ),
-      ),
-    ),
-    { initialValue: { status: 'loading' } as ShiftsState },
-  );
-
-  protected readonly shifts = computed(() => {
-    const state = this.shiftsState();
-    return state.status === 'ready' ? state.shifts : [];
-  });
-  protected readonly shiftsFailed = computed(() => this.shiftsState().status === 'error');
-
-  /** What the user picked; it may not exist in the current line's shifts. */
-  private readonly pickedCode = signal('');
-
-  /** The picked shift if the line has it, otherwise the first one (undefined when there are none). */
-  protected readonly shift = computed(() => {
-    const shifts = this.shifts();
-    return shifts.find((s) => s.code === this.pickedCode()) ?? shifts[0];
-  });
-
-  protected pick(code: string): void {
-    this.pickedCode.set(code);
-  }
-
-  /** The OEE of every machine of the line for the picked shift, refreshed every 30 s. */
+  /** The OEE of every machine of the line for the shift, refreshed every 30 s. */
   protected readonly view = toSignal(
     combineLatest([toObservable(this.lineId), toObservable(this.shift)]).pipe(
       switchMap(([lineId, shift]) =>

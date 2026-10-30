@@ -1,0 +1,15 @@
+@if (failed()) {
+  <p role="alert">Could not load the shifts.</p>
+} @else if (shifts().length === 0) {
+  <p>This line has no shifts.</p>
+} @else {
+  <label for="shift-select">Shift</label>
+  <select id="shift-select" (change)="pick($any($event.target).value)">
+    @for (s of shifts(); track s.id) {
+      <option [value]="s.code" [selected]="s.code === shift()?.code">
+        {{ s.code }} · {{ s.name }}
+        ({{ formatShiftTime(s.startTime) }}–{{ formatShiftTime(s.endTime) }})
+      </option>
+    }
+  </select>
+}

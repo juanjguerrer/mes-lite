@@ -1,0 +1,28 @@
+@if (view().loaded && view().from) {
+  <p class="range">
+    {{ formatPlantDateTime(view().from) }} – {{ formatPlantDateTime(view().to) }}
+  </p>
+}
+
+@if (view().failed) {
+  <p role="alert">
+    @if (view().loaded) {
+      Could not refresh; showing the last data.
+    } @else {
+      Could not load the time per state.
+    }
+  </p>
+}
+
+@if (view().rows.length > 0) {
+  <div
+    echarts
+    class="chart"
+    role="img"
+    aria-label="Time per state of each machine during the shift"
+    [options]="options()"
+    [style.height.px]="heightPx()"
+  ></div>
+} @else if (view().loaded) {
+  <p>This line has no machines.</p>
+}

@@ -3,12 +3,11 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { OeeTable } from './oee-table';
 
-const SHIFTS_URL = '/api/lines/3/shifts';
 const MACHINES_URL = '/api/lines/3/machines';
 const oeeUrl = (machineId: number) => `/api/machines/${machineId}/oee`;
 
-const shift = (id: number, code: string, startTime = '06:00:00', endTime = '14:00:00') => ({
-  id,
+const shift = (code: string, startTime = '06:00:00', endTime = '14:00:00') => ({
+  id: 1,
   lineId: 3,
   code,
   name: `Shift ${code}`,
@@ -50,7 +49,6 @@ describe('OeeTable', () => {
     fixture = TestBed.createComponent(OeeTable);
     fixture.componentRef.setInput('lineId', 3);
     element = fixture.nativeElement as HTMLElement;
-    fixture.detectChanges();
   });
 
   afterEach(() => {
@@ -58,8 +56,8 @@ describe('OeeTable', () => {
     vi.useRealTimers();
   });
 
-  function respondShifts(shifts: unknown[]) {
-    http.expectOne(SHIFTS_URL).flush(shifts);
+  function show(s: unknown) {
+    fixture.componentRef.setInput('shift', s);
     fixture.detectChanges();
     // The first poll fires on the next tick.
     vi.advanceTimersByTime(0);
@@ -72,98 +70,66 @@ describe('OeeTable', () => {
 
   const cells = (row: Element) => [...row.querySelectorAll('td')].map((e) => e.textContent?.trim());
 
-  describe('shift selector', () => {
-    it('lists the shifts of the line with their hours', () => {
-      respondShifts([shift(1, 'MORNING'), shift(2, 'NIGHT')]);
+  it('loads nothing while there is no shift', () => {
+    fixture.detectChanges();
+    vi.advanceTimersByTime(0);
 
-      const options = [...element.querySelectorAll('option')].map((o) => o.textContent?.trim());
-      expect(options).toHaveLength(2);
-      expect(options[0]).toContain('MORNING');
-      expect(options[0]).toContain('06:00–14:00');
-    });
-
-    it('selects the first shift by default and keeps a later pick', () => {
-      respondShifts([shift(1, 'MORNING'), shift(2, 'NIGHT')]);
-      const select = element.querySelector('select') as HTMLSelectElement;
-      expect(select.value).toBe('MORNING');
-
-      select.value = 'NIGHT';
-      select.dispatchEvent(new Event('change'));
-      fixture.detectChanges();
-
-      expect(select.value).toBe('NIGHT');
-    });
-
-    it('says so when the line has no shifts', () => {
-      respondShifts([]);
-
-      expect(element.querySelector('select')).toBeNull();
-      expect(element.textContent).toContain('no shifts');
-    });
-
-    it('warns when the shifts cannot be loaded', () => {
-      http.expectOne(SHIFTS_URL).flush(null, { status: 500, statusText: 'Server Error' });
-      fixture.detectChanges();
-
-      expect(element.querySelector('[role="alert"]')?.textContent).toContain('Could not load the shifts');
-    });
+    http.expectNone(MACHINES_URL);
   });
 
-  describe('OEE rows', () => {
-    it('shows one row per machine with its OEE for the picked shift', () => {
-      respondShifts([shift(1, 'MORNING')]);
-      respondMachines(robots);
+  it('shows one row per machine with its OEE for the shift', () => {
+    show(shift('MORNING'));
+    respondMachines(robots);
 
-      const first = http.expectOne((r) => r.url === oeeUrl(7));
-      expect(first.request.params.get('shiftCode')).toBe('MORNING');
-      expect(first.request.params.get('date')).toBe('2026-10-28');
-      first.flush(
-        oee({ availability: 0.8734, performance: null, oee: null, warnings: ['No ideal cycle time'] }),
-      );
-      http.expectOne((r) => r.url === oeeUrl(8)).flush(oee({ availability: 0.5, quality: 0.5, oee: 0.125 }));
-      fixture.detectChanges();
+    const first = http.expectOne((r) => r.url === oeeUrl(7));
+    expect(first.request.params.get('shiftCode')).toBe('MORNING');
+    expect(first.request.params.get('date')).toBe('2026-10-28');
+    first.flush(
+      oee({ availability: 0.8734, performance: null, oee: null, warnings: ['No ideal cycle time'] }),
+    );
+    http.expectOne((r) => r.url === oeeUrl(8)).flush(oee({ availability: 0.5, quality: 0.5, oee: 0.125 }));
+    fixture.detectChanges();
 
-      const rows = element.querySelectorAll('tbody tr');
-      expect(rows).toHaveLength(2);
-      expect(rows[0].querySelector('th')?.textContent).toContain('ROBOT-01');
-      expect(cells(rows[0])).toEqual(['87.3%', '—', '100.0%', '—', 'No ideal cycle time']);
-      expect(cells(rows[1])).toEqual(['50.0%', '100.0%', '50.0%', '12.5%', '']);
-      expect(element.querySelector('.date')?.textContent).toContain('2026-10-28');
-    });
+    const rows = element.querySelectorAll('tbody tr');
+    expect(rows).toHaveLength(2);
+    expect(rows[0].querySelector('th')?.textContent).toContain('ROBOT-01');
+    expect(cells(rows[0])).toEqual(['87.3%', '—', '100.0%', '—', 'No ideal cycle time']);
+    expect(cells(rows[1])).toEqual(['50.0%', '100.0%', '50.0%', '12.5%', '']);
+    expect(element.querySelector('.date')?.textContent).toContain('2026-10-28');
+  });
 
-    it('asks for the start date of a night shift that began yesterday', () => {
-      respondShifts([shift(2, 'NIGHT', '22:00:00', '06:00:00')]);
-      respondMachines([robots[0]]);
+  it('asks for the start date of a night shift that began yesterday', () => {
+    show(shift('NIGHT', '22:00:00', '06:00:00'));
+    respondMachines([robots[0]]);
 
-      const req = http.expectOne((r) => r.url === oeeUrl(7));
-      expect(req.request.params.get('date')).toBe('2026-10-27');
-      req.flush(oee());
-    });
+    const req = http.expectOne((r) => r.url === oeeUrl(7));
+    expect(req.request.params.get('date')).toBe('2026-10-27');
+    req.flush(oee());
+  });
 
-    it('keeps the other rows when one machine fails', () => {
-      respondShifts([shift(1, 'MORNING')]);
-      respondMachines(robots);
+  it('keeps the other rows when one machine fails', () => {
+    show(shift('MORNING'));
+    respondMachines(robots);
 
-      http.expectOne((r) => r.url === oeeUrl(7)).flush(null, { status: 500, statusText: 'Server Error' });
-      http.expectOne((r) => r.url === oeeUrl(8)).flush(oee());
-      fixture.detectChanges();
+    http.expectOne((r) => r.url === oeeUrl(7)).flush(null, { status: 500, statusText: 'Server Error' });
+    http.expectOne((r) => r.url === oeeUrl(8)).flush(oee());
+    fixture.detectChanges();
 
-      const rows = element.querySelectorAll('tbody tr');
-      expect(cells(rows[0])).toEqual(['—', '—', '—', '—', 'Could not load']);
-      expect(cells(rows[1])[3]).toBe('100.0%');
-    });
+    const rows = element.querySelectorAll('tbody tr');
+    expect(cells(rows[0])).toEqual(['—', '—', '—', '—', 'Could not load']);
+    expect(cells(rows[1])[3]).toBe('100.0%');
+  });
 
-    it('says so when the line has no machines', () => {
-      respondShifts([shift(1, 'MORNING')]);
-      respondMachines([]);
+  it('says so when the line has no machines', () => {
+    show(shift('MORNING'));
+    respondMachines([]);
 
-      expect(element.querySelector('tbody')?.textContent).toContain('no machines');
-    });
+    expect(element.querySelector('tbody')?.textContent).toContain('no machines');
   });
 
   describe('refresh', () => {
     function loadOnce() {
-      respondShifts([shift(1, 'MORNING')]);
+      show(shift('MORNING'));
       respondMachines([robots[0]]);
       http.expectOne((r) => r.url === oeeUrl(7)).flush(oee());
       fixture.detectChanges();
@@ -189,7 +155,7 @@ describe('OeeTable', () => {
     });
 
     it('warns that the machines could not be loaded when the first load fails', () => {
-      respondShifts([shift(1, 'MORNING')]);
+      show(shift('MORNING'));
       http.expectOne((r) => r.url === MACHINES_URL).flush(null, { status: 500, statusText: 'Server Error' });
       fixture.detectChanges();
 
