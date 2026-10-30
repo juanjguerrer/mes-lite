@@ -44,6 +44,32 @@ jobs:
       - name: Build and test
         run: dotnet test --configuration Release
 
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test -- --watch=false
+
+      - name: Build
+        run: npm run build
+
   simulator:
     runs-on: ubuntu-latest
     defaults:
