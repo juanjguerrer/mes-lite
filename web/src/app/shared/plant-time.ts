@@ -38,3 +38,16 @@ export function formatPlantDateTime(iso: string): string {
 export function plantDate(instant: Date = new Date()): string {
   return dateFormat.format(instant);
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The `date` the MES expects for the most recent occurrence of a shift that has already started:
+ * the shift's start date, which is yesterday when the shift starts later in the day than now
+ * (a night shift after midnight, or a shift that has not started yet today).
+ * `startTime` is the plant-local "HH:mm[:ss]" of the shift.
+ */
+export function latestShiftDate(startTime: string, now: Date = new Date()): string {
+  const started = formatPlantTime(now.toISOString()) >= startTime.slice(0, 5);
+  return plantDate(started ? now : new Date(now.getTime() - DAY_MS));
+}

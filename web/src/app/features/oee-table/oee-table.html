@@ -1,0 +1,67 @@
+@if (shiftsFailed()) {
+  <p role="alert">Could not load the shifts.</p>
+} @else if (shifts().length === 0) {
+  <p>This line has no shifts.</p>
+} @else {
+  <div class="toolbar">
+    <label for="shift-select">Shift</label>
+    <select id="shift-select" (change)="pick($any($event.target).value)">
+      @for (s of shifts(); track s.id) {
+        <option [value]="s.code" [selected]="s.code === shift()?.code">
+          {{ s.code }} · {{ s.name }}
+          ({{ formatShiftTime(s.startTime) }}–{{ formatShiftTime(s.endTime) }})
+        </option>
+      }
+    </select>
+    @if (view().loaded) {
+      <span class="date">Shift of {{ view().date }}</span>
+    }
+  </div>
+
+  @if (view().failed) {
+    <p role="alert">
+      @if (view().loaded) {
+        Could not refresh; showing the last data.
+      } @else {
+        Could not load the machines.
+      }
+    </p>
+  }
+
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Machine</th>
+        <th scope="col" class="num">Availability</th>
+        <th scope="col" class="num">Performance</th>
+        <th scope="col" class="num">Quality</th>
+        <th scope="col" class="num">OEE</th>
+        <th scope="col">Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of view().rows; track row.machine.id) {
+        <tr>
+          <th scope="row">{{ row.machine.code }}</th>
+          <td class="num">{{ formatRatio(row.oee?.availability ?? null) }}</td>
+          <td class="num">{{ formatRatio(row.oee?.performance ?? null) }}</td>
+          <td class="num">{{ formatRatio(row.oee?.quality ?? null) }}</td>
+          <td class="num oee">{{ formatRatio(row.oee?.oee ?? null) }}</td>
+          <td class="notes">
+            @if (row.oee) {
+              {{ row.oee.warnings.join('; ') }}
+            } @else {
+              Could not load
+            }
+          </td>
+        </tr>
+      } @empty {
+        @if (view().loaded) {
+          <tr>
+            <td colspan="6">This line has no machines.</td>
+          </tr>
+        }
+      }
+    </tbody>
+  </table>
+}

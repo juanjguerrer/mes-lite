@@ -1,9 +1,11 @@
 import { Component, input, numberAttribute } from '@angular/core';
 import { MachineStates } from '../machine-states/machine-states';
+import { OeeTable } from '../oee-table/oee-table';
 
 @Component({
   imports: [
-    MachineStates
+    MachineStates,
+    OeeTable
   ],
   selector: 'app-line-dashboard',
   styleUrl: './line-dashboard.scss',
