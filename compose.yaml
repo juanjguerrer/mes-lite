@@ -52,6 +52,17 @@ services:
       retries: 20
       start_period: 20s
 
+  # The dashboard. nginx serves the Angular build and forwards /api to the MES,
+  # so the browser only talks to this origin (no CORS).
+  web:
+    build: ./web
+    restart: unless-stopped
+    depends_on:
+      mes:
+        condition: service_healthy
+    ports:
+      - "8081:80"
+
   simulator:
     build: ./simulator
     restart: unless-stopped
